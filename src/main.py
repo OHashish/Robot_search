@@ -86,7 +86,15 @@ class colourIdentifier():
 
 	def stop_search(self):
 		self.image_sub.unregister()
+		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
 		self.green_found = False
+
+	def callback2(self,data):
+		#just eat the messages we don't need
+		try:
+			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
+		except CvBridgeError as e:
+			print(e)
 
 	
 
@@ -135,8 +143,9 @@ class colourIdentifier():
 
 			#Check if the area of the shape you want is big enough to be considered
 			# If it is then change the flag for that colour to be True(1)
-			if cv2.contourArea(c) > 800:  #<What do you think is a suitable area?>:
-
+			if cv2.contourArea(c) > 3500:  #<What do you think is a suitable area?>:
+				
+				rospy.loginfo(cv2.contourArea(c))
 				# draw a circle on the contour you're identifying
 				#minEnclosingCircle can find the centre and radius of the largest contour(result from max())
 				(x, y), radius = cv2.minEnclosingCircle(c)
