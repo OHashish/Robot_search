@@ -1,81 +1,300 @@
 #!/usr/bin/env python
 from __future__ import division
 import cv2
-import numpy as np
 import rospy
-import sys
+import numpy as np
+
+import yaml
+
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+import actionlib
+from actionlib_msgs.msg import *
+from geometry_msgs.msg import Pose, Point, Quaternion
 
 from geometry_msgs.msg import Twist, Vector3
+from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 
-class Robot():
-    def __init__(self, rate):
-        self.bridge = CvBridge()
-        self.redflag = 0
-        self.greenflag = 0
-        self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
-        self.rate = rate
-        rospy.Subscriber('camera/rgb/image_raw', Image, self.callback)
-        self.sensitivity = 10
-    def callback():
-        desired_velocity = Twist()
-        cv = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        cv2.namedWindow('camera_Feed')
-        hsv_green_lower = np.array([60-self.sensitivity, 100, 100])
-        hsv_green_upper = np.array([60+self.sensitivity, 255, 255])
-        hsv_red_lower = np.array([10-self.sensitivity, 100, 100])
-        hsv_red_upper = np.array([10+self.sensitivity, 255, 255])
-        hsv_image = cv2.cvtColor(cv, cv2.COLOR_BGR2HSV)
-        mskg = cv2.inRange(Hsv_image, hsv_green_lower, hsv_green_upper)
-        mskr = cv2.inRange(Hsv_image, hsv_red_lower, hsv_red_upper)
-        gr = cv2.bitwise_and(cv, cv, mask=mskg)
-        rd = cv2.bitwise_and(cv, cv, mask=mskr)
-        graygr = cv2.cvtColor(gr, cv2.COLOR_BGR2GRAY)
-        grayrd = cv2.cvtColor(rd, cv2.COLOR_BGR2GRAY)
-        combmsk = cv2.bitwise_or(mskg, mskr)
-        com = cv2.bitwise_and(cv, cv, mask=combmsk)
-        greencontours, ghierarcy = cv2.findContours(graygr, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        redcontours, rhierarcy = cv2.findContours(grayrd, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        if len(greencontours)>0:
-            cg = max(greencontours, key=cv2.contourArea)
-            if cv2.contourArea(cg) > 300:
-                (x, y), radius = cv2.minEnclosingCircle(cg)
-                circil = cv2.circle(res,(int(x),int(y)),int(radius),(255,0,255),1)
-                self.greenflag = 1
-        else:
-            self.greenflag = 0
-        if len(redcontours)>0:
-            cr = max(redcontours, key=cv2.contourArea)
-            if cv2.contourArea(cr) > 300:
-                (x, y), radius = cv2.minEnclosingCircle(cr)
+###ACTUATOR CLASS FROM LAB 4
+class GoToPose():
+	def __init__(self):
 
-                circil = cv2.circle(res,(int(x),int(y)),int(radius),(0,255,255),1)
-                self.redflag = 1
-        else:
-            self.redflag = 0
-        if self.redflag == 1:
-            pass
-        if self.greenflag == 1:
-            if cv2.contourArea(cg) > 15000:
-                pass
-            elif cv2.contourArea(cg) < 15000:
-                pass
-            elif cv2.contourArea(cg) == 15000:
-                pass
-        self.pub.publish(desired_velocity)
-        self.rate.sleep()
-        cv2.imshow('camera_Feed', res)
-        cv2.waitKey(3)
+		self.goal_sent = False
 
-def main(argv):
-    rospy.init_node('camera_Feed', anonymous=True)
-    robot = Robot(rospy.Rate(10))
-    rospy.spin()
+		# What to do if shut down (e.g. Ctrl-C or failure)
+		rospy.on_shutdown(self.shutdown)
+
+		# Tell the action client that we want to spin a thread by default
+		self.move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
+		rospy.loginfo("Wait for the action server to come up")
+
+		self.move_base.wait_for_server()
+
+	def goto(self, pos, quat):
+
+		# Send a goal
+		self.goal_sent = True
+		goal = MoveBaseGoal()
+		goal.target_pose.header.frame_id = 'map'
+		goal.target_pose.header.stamp = rospy.Time.now()
+		goal.target_pose.pose = Pose(Point(pos['x'], pos['y'], 0.000),
+									Quaternion(quat['r1'], quat['r2'], quat['r3'], quat['r4']))
+
+	# Start moving
+		self.move_base.send_goal(goal)
+
+	# Allow TurtleBot up to 60 seconds to complete task
+		success = self.move_base.wait_for_result(rospy.Duration(60)) 
+
+		state = self.move_base.get_state()
+		result = False
+
+		if success and state == GoalStatus.SUCCEEDED:
+			# We made it!
+			result = True
+		else:
+			self.move_base.cancel_goal()
+
+		self.goal_sent = False
+		return result
+
+	def shutdown(self):
+		if self.goal_sent:
+			self.move_base.cancel_goal()
+		rospy.loginfo("Stop")
+		rospy.sleep(1)
+
+
+##CAMERA CLASS LAB3
+###NEEDS MANY CHANGES
+class colourIdentifier():
+
+	def __init__(self):
+
+		# Initialise any flags that signal a colour has been detected (default to false)
+		self.green_found = False
+
+	def start_search(self):
+		self.green_found = False
+		# Remember to initialise a CvBridge() and set up a subscriber to the image topic you wish to use
+		self.bridge = CvBridge()
+
+		# We covered which topic to subscribe to should you wish to receive image data
+		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback)
+
+	def stop_search(self):
+		self.image_sub.unregister()
+		self.green_found = False
+
+	
+
+
+	def callback(self, data):
+		# Convert the received image into a opencv image
+		# But remember that you should always wrap a call to this conversion method in an exception handler
+		try:
+			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
+		except CvBridgeError as e:
+			print(e)
+
+		# Set the upper and lower bounds for the colour you wish to identify - green
+		self.hsv_green_lower = np.array([25,52,72])
+		self.hsv_green_upper = np.array([102,255,255])
+
+		# Convert the rgb image into a hsv image
+		self.hsv_img = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
+
+		# Filter out everything but a particular colour using the cv2.inRange() method
+		self.mask = cv2.inRange(self.hsv_img,self.hsv_green_lower,self.hsv_green_upper)
+		# Apply the mask to the original image using the cv2.bitwise_and() method
+		self.result = cv2.bitwise_and(self.cv_image,self.cv_image,mask =self.mask)
+
+
+		# Find the contours that appear within the certain colour mask using the cv2.findContours() method
+		# For <mode> use cv2.RETR_LIST for <method> use cv2.CHAIN_APPROX_SIMPLE
+
+		self.contours = cv2.findContours(self.mask,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+
+
+		if len(self.contours) > 0:
+
+			# Loop over the contours
+			# There are a few different methods for identifying which contour is the biggest:
+			# Loop through the list and keep track of which contour is biggest or
+			# Use the max() method to find the largest contour
+			c = max(self.contours, key=cv2.contourArea)
+
+			#Moments can calculate the center of the contour
+			M = cv2.moments(c)
+			try:
+				cx, cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
+			except ZeroDivisionError:
+				print("divzero")
+
+			#Check if the area of the shape you want is big enough to be considered
+			# If it is then change the flag for that colour to be True(1)
+			if cv2.contourArea(c) > 800:  #<What do you think is a suitable area?>:
+
+				# draw a circle on the contour you're identifying
+				#minEnclosingCircle can find the centre and radius of the largest contour(result from max())
+				(x, y), radius = cv2.minEnclosingCircle(c)
+
+				cv2.circle(self.result,(int(x),int(y)),int(radius),[155,50,50],5)
+
+				# Then alter the values of any flags
+				self.green_found = True
+
+
+		#if the flag is true (colour has been detected)
+			#print the flag or colour to test that it has been detected
+			#alternatively you could publish to the lab1 talker/listener
+			if (self.green_found == True):
+				rospy.loginfo("Green found!")
+
+
+		#Show the resultant images you have created. You can show all of them or just the end result if you wish to.
+		cv2.namedWindow("dbg_window")
+		cv2.imshow("dbg_window",self.cv_image)
+		cv2.waitKey(3)
+
+		cv2.namedWindow("window")
+		cv2.imshow("window",self.result)
+
+
+###CLASS FOR THE ROBOT
+class Bobot():
+
+	def __init__(self, ents, mids):
+
+		##points
+		self.entrance_points = ents
+		self.mid_points = mids
+
+
+		##navigator
+		self.navigator = GoToPose()
+		
+
+		##camera 
+		self.camera = colourIdentifier()
+
+
+		###figured out correct room flag
+		self.found_room = False
+		self.the_room = None
+
+
+	##go sequantially to entrance points
+	def go_to_entrances(self):
+
+		for i in range(len(self.entrance_points)):
+
+			##IF ROOM IS FOUND THEN BREAK
+			if self.found_room:
+				break
+
+			# Customize the following values so they are appropriate for your location
+			x = self.entrance_points[i][0]# SPECIFY X COORDINATE HERE
+			y = self.entrance_points[i][1]# SPECIFY Y COORDINATE HERE
+
+			theta = 0# SPECIFY THETA (ROTATION) HERE
+			position = {'x': x, 'y' : y}
+			quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(theta/2.0), 'r4' : np.cos(theta/2.0)}
+
+			rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
+			success = self.navigator.goto(position, quaternion)
+
+			if success:
+				rospy.loginfo("Hooray, reached the desired pose")
+
+				##take some time off to avoid overspin/skidding
+				rospy.sleep(2)
+
+				###LOOK FOR CIRCLE
+				self.camera.start_search()
+
+				##do a full spin abusing navigator class
+
+				for n_theta in [np.pi/3, 2/3*np.pi, np.pi, 4/3 * np.pi, 5/3*np.pi, 0]:
+
+					quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(n_theta/2.0), 'r4' : np.cos(n_theta/2.0)}
+					rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
+					self.navigator.goto(position, quaternion)
+					#chill
+					rospy.sleep(3)
+
+					##check if green was found
+					if self.camera.green_found:
+
+						##stop searching
+						self.camera.stop_search()
+						self.found_room = True
+						self.the_room = self.mid_points[i]
+						break
+
+				##stop searching
+				self.camera.stop_search()
+
+			else:
+				rospy.loginfo("The base failed to reach the desired pose")
+
+			# Sleep to give the last log messages time to be sent
+			rospy.sleep(1)
+
+	def go_to_room(self):
+
+		if self.found_room:
+			x = self.the_room[0]# SPECIFY X COORDINATE HERE
+			y = self.the_room[1]# SPECIFY Y COORDINATE HERE
+
+			theta = 0# SPECIFY THETA (ROTATION) HERE
+			position = {'x': x, 'y' : y}
+			quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(theta/2.0), 'r4' : np.cos(theta/2.0)}
+
+			rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
+			success = self.navigator.goto(position, quaternion)
+
+			if success:
+				rospy.loginfo("Hooray, reached the desired pose")
+			else:
+				rospy.loginfo("The base failed to reach the desired pose")
+
+
+
+
+
 
 if __name__ == '__main__':
-    # Your code should go here. You can break your code into several files and
-    # include them in this file. You just need to make sure that your solution 
-    # can run by just running rosrun group_project main.py
-    main(sys.argv)
+	try:
+		##node
+		rospy.init_node('bobot_boy', anonymous=True)
+
+		##read points from yaml files and do some sorting so coding is easier
+		points = []
+		with open("./../world/input_points.yaml", 'r') as stream:
+			points = yaml.safe_load(stream)
+
+		##entrances
+		ents = []
+		ents.append(points['room1_entrance_xy'])
+		ents.append(points['room2_entrance_xy'])
+
+		mids = []
+		mids.append(points['room1_centre_xy'])
+		mids.append(points['room2_centre_xy'])
+
+		##make a happy little robot 
+		robot = Bobot(ents,mids)
+
+		robot.go_to_entrances()
+		robot.go_to_room()
+
+
+	except rospy.ROSInterruptException:
+		rospy.loginfo("Ctrl-C caught. Quitting")
+
+	#cv2.destroyWindow('window')
+
+
