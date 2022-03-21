@@ -46,7 +46,7 @@ evaluate() {
     solutionPID=$!
 
     # Wait for max duration (5 minutes) for main program to complete.
-    countdown 'main.py program running...' '00:00:10'
+    countdown 'main.py program running...' '00:05:00'
 
     # Kill the main script
     kill -9 $solutionPID
