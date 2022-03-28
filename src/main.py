@@ -16,6 +16,9 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+###JUST FOR DEBUGGING
+import os
+
 
 ###ACTUATOR CLASS FROM LAB 4
 class GoToPose():
@@ -67,8 +70,64 @@ class GoToPose():
 		rospy.sleep(1)
 
 
+##class to detect faces
+class faceDetector():
+
+	def __init__(self):
+		self.face_found = False
+
+	def start_search(self):
+		self.green_found = False
+		# Remember to initialise a CvBridge() and set up a subscriber to the image topic you wish to use
+		self.bridge = CvBridge()
+
+		# We covered which topic to subscribe to should you wish to receive image data
+		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback)
+
+	def stop_search(self):
+		self.image_sub.unregister()
+		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
+		self.green_found = False
+
+	def callback2(self,data):
+		#just eat the messages we don't need
+		try:
+			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
+		except CvBridgeError as e:
+			print(e)
+
+	def callback(self,data):
+		##get the image
+		try:
+			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
+		except CvBridgeError as e:
+			print(e)
+
+
+		##convert to grayscale
+		
+		self.gray_image = cv2.cvtColor(self.cv_image, cv2.COLOR_RGB2GRAY)
+
+		self.cascade_classifier = cv2.CascadeClassifier('./../haarcascades/haarcascade_frontalface_default.xml')
+
+		detected_objects = self.cascade_classifier.detectMultiScale(self.gray_image,1.3,5)
+
+		#Draw rectangles on the detected objects
+		if len(detected_objects) != 0:
+			print('FOUND A FACE')
+			for (x, y, width, height) in detected_objects:
+				cv2.rectangle(self.cv_image, (x, y),
+							(x + height, y + width),
+							(0, 255, 0), 2)
+
+		cv2.namedWindow('face')
+		cv2.imshow('face', self.cv_image)
+		cv2.waitKey(3)
+		
+
+
 ##CAMERA CLASS LAB3
-###NEEDS MANY CHANGES
+###CHECK FOR ONLY CIRCLES MAYBE??
 class colourIdentifier():
 
 	def __init__(self):
@@ -280,25 +339,36 @@ if __name__ == '__main__':
 		##node
 		rospy.init_node('bobot_boy', anonymous=True)
 
-		##read points from yaml files and do some sorting so coding is easier
-		points = []
-		with open("./../world/input_points.yaml", 'r') as stream:
-			points = yaml.safe_load(stream)
+		##NO ARGS = CLEAN RUN; ARGS = DEBUGGING
+			##read points from yaml files and do some sorting so coding is easier
+		if len(sys.argv) == 1:
+			points = []
+			with open("./../world/input_points.yaml", 'r') as stream:
+				points = yaml.safe_load(stream)
 
-		##entrances
-		ents = []
-		ents.append(points['room1_entrance_xy'])
-		ents.append(points['room2_entrance_xy'])
+			##entrances
+			ents = []
+			ents.append(points['room1_entrance_xy'])
+			ents.append(points['room2_entrance_xy'])
 
-		mids = []
-		mids.append(points['room1_centre_xy'])
-		mids.append(points['room2_centre_xy'])
+			mids = []
+			mids.append(points['room1_centre_xy'])
+			mids.append(points['room2_centre_xy'])
 
-		##make a happy little robot 
-		robot = Bobot(ents,mids)
+			##make a happy little robot 
+			robot = Bobot(ents,mids)
 
-		robot.go_to_entrances()
-		robot.go_to_room()
+			robot.go_to_entrances()
+			robot.go_to_room()
+
+		###DEBUGGING SECTION, DELETE BEFORE SUBMISSION
+		if sys.argv[1] == 'debug_face':
+
+
+			print('DEBUGGING FACE STUFF')
+			facer = faceDetector()
+			facer.start_search()
+			rospy.spin()
 
 
 	except rospy.ROSInterruptException:
