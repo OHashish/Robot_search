@@ -125,15 +125,13 @@ class faceDetector():
 		cv2.waitKey(3)
 		
 
-
-##CAMERA CLASS LAB3
-###CHECK FOR ONLY CIRCLES MAYBE??
 class colourIdentifier():
 
 	def __init__(self):
 
 		# Initialise any flags that signal a colour has been detected (default to false)
 		self.green_found = False
+		self.red_found = False
 
 	def start_search(self):
 		self.green_found = False
@@ -143,6 +141,14 @@ class colourIdentifier():
 		# We covered which topic to subscribe to should you wish to receive image data
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback)
 
+	def start_face_search(self):
+		self.red_found = False
+		self.bridge = CvBridge()
+		self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
+		self.desired_velocity = Twist()
+		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback3)
+	def stop_face_search(self):
+		self.image_sub.unregister()
 	def stop_search(self):
 		self.image_sub.unregister()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
@@ -230,6 +236,74 @@ class colourIdentifier():
 		cv2.namedWindow("window")
 		cv2.imshow("window",self.result)
 
+	def callback3(self, data):
+		try:
+			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
+		except CvBridgeError as e:
+			print(e)
+
+		#Red Upper and Lower Bounds
+		self.hsv_red_lower = np.array([0,100,20])
+		self.hsv_red_upper = np.array([5,255,255])
+
+		self.hsv_img = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
+		self.mask = cv2.inRange(self.hsv_img,self.hsv_red_lower,self.hsv_red_upper)
+		self.result = cv2.bitwise_and(self.cv_image,self.cv_image,mask =self.mask)
+
+		self.contours = cv2.findContours(self.mask,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+
+
+		if len(self.contours) > 0:
+			cx=0
+			cy=0
+			c = max(self.contours, key=cv2.contourArea)
+			rospy.loginfo(cv2.contourArea(c))
+			M = cv2.moments(c)
+			try:
+				cx, cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
+			except ZeroDivisionError:
+				print("divzero")
+			#Rotate Robot until red object is at the center
+			if cv2.contourArea(c) < 15000 and cv2.contourArea(c)>50:
+				self.desired_velocity.linear.x = 0
+				if cx>330:
+					rospy.loginfo("Rotating Right...")
+					rospy.loginfo(cx)
+					self.desired_velocity.angular.z = -0.075
+					for i in range (1):
+						self.pub.publish(self.desired_velocity)
+				if cx<300:
+					rospy.loginfo("Rotating Left ...")
+					self.desired_velocity.angular.z = 0.075
+					for i in range (1):
+						self.pub.publish(self.desired_velocity)
+				self.desired_velocity.angular.z = 0
+					
+			#If Red object is centered then start moving towards it
+			if cv2.contourArea(c) < 15000 and cv2.contourArea(c)>50 and (cx<330 and cx>300):	
+				(x, y), radius = cv2.minEnclosingCircle(c)
+
+				cv2.circle(self.result,(int(x),int(y)),int(radius),[155,50,50],5)
+				self.desired_velocity.linear.x = 0.3
+				for i in range (30):
+					self.pub.publish(self.desired_velocity)
+			# if (self.red_found == True):
+			# 	rospy.loginfo("Red found!")
+			if cv2.contourArea(c) > 15000:
+				
+				rospy.loginfo("Red found!")
+				self.red_found = True
+				self.desired_velocity.linear.x = 0
+				for i in range (30):
+					self.pub.publish(self.desired_velocity)
+				
+		#Show the resultant images you have created. You can show all of them or just the end result if you wish to.
+		cv2.namedWindow("dbg_window")
+		cv2.imshow("dbg_window",self.cv_image)
+		cv2.waitKey(3)
+
+		cv2.namedWindow("window")
+		cv2.imshow("window",self.result)
 
 ###CLASS FOR THE ROBOT
 class Bobot():
@@ -239,20 +313,15 @@ class Bobot():
 		##points
 		self.entrance_points = ents
 		self.mid_points = mids
-
-
 		##navigator
 		self.navigator = GoToPose()
-		
-
 		##camera 
 		self.camera = colourIdentifier()
-
-
+		##face detector
+		self.facer= faceDetector()
 		###figured out correct room flag
 		self.found_room = False
 		self.the_room = None
-
 
 	##go sequantially to entrance points
 	def go_to_entrances(self):
@@ -325,11 +394,13 @@ class Bobot():
 			success = self.navigator.goto(position, quaternion)
 
 			if success:
-				rospy.loginfo("Hooray, reached the desired pose")
+				rospy.loginfo("Hooray, reached the desired pose(We Middle)")
 			else:
 				rospy.loginfo("The base failed to reach the desired pose")
 
-
+	def face_search(self):
+		self.camera.start_face_search()
+		
 
 
 
@@ -355,7 +426,7 @@ if __name__ == '__main__':
 			mids.append(points['room1_centre_xy'])
 			mids.append(points['room2_centre_xy'])
 
-			##make a happy little robot 
+			##make a depressed little robot (his name is Bobot)
 			robot = Bobot(ents,mids)
 
 			robot.go_to_entrances()
@@ -368,6 +439,13 @@ if __name__ == '__main__':
 			print('DEBUGGING FACE STUFF')
 			facer = faceDetector()
 			facer.start_search()
+			rospy.spin()
+		if sys.argv[1] == 'debug_face_search':
+
+
+			print('DEBUGGING FACE Search STUFF')
+			facerc = colourIdentifier()
+			facerc.start_face_search()
 			rospy.spin()
 
 
