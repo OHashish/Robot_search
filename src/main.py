@@ -16,6 +16,8 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+import time
+
 ###JUST FOR DEBUGGING
 import os
 
@@ -87,7 +89,7 @@ class faceDetector():
 	def stop_search(self):
 		self.image_sub.unregister()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
-		self.green_found = False
+		self.face_found = False
 
 	def callback2(self,data):
 		#just eat the messages we don't need
@@ -115,6 +117,7 @@ class faceDetector():
 		#Draw rectangles on the detected objects
 		if len(detected_objects) != 0:
 			print('FOUND A FACE')
+			self.face_found = True
 			for (x, y, width, height) in detected_objects:
 				cv2.rectangle(self.cv_image, (x, y),
 							(x + height, y + width),
@@ -132,6 +135,7 @@ class colourIdentifier():
 		# Initialise any flags that signal a colour has been detected (default to false)
 		self.green_found = False
 		self.red_found = False
+		self.timeof_last = None
 
 	def start_search(self):
 		self.green_found = False
@@ -141,6 +145,8 @@ class colourIdentifier():
 		# We covered which topic to subscribe to should you wish to receive image data
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback)
 
+
+	###only works for red, todo: implement all colours
 	def start_face_search(self):
 		self.red_found = False
 		self.bridge = CvBridge()
@@ -271,11 +277,13 @@ class colourIdentifier():
 					rospy.loginfo(cx)
 					self.desired_velocity.angular.z = -0.075
 					for i in range (1):
+						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 				if cx<300:
 					rospy.loginfo("Rotating Left ...")
 					self.desired_velocity.angular.z = 0.075
 					for i in range (1):
+						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 				self.desired_velocity.angular.z = 0
 					
@@ -286,6 +294,7 @@ class colourIdentifier():
 				cv2.circle(self.result,(int(x),int(y)),int(radius),[155,50,50],5)
 				self.desired_velocity.linear.x = 0.3
 				for i in range (30):
+					self.timeof_last = time.time()
 					self.pub.publish(self.desired_velocity)
 			# if (self.red_found == True):
 			# 	rospy.loginfo("Red found!")
@@ -308,7 +317,16 @@ class colourIdentifier():
 ###CLASS FOR THE ROBOT
 class Bobot():
 
-	def __init__(self, ents, mids):
+	def __init__(self, ents = None, mids = None):
+
+
+		###variable to see if robot is doing anything
+		# if the robot does not move for 5 seconds set it to True
+		# manage it in function calls
+		self.idle = True
+
+		#time of last action
+		self.timeof_last = None
 
 		##points
 		self.entrance_points = ents
@@ -322,6 +340,7 @@ class Bobot():
 		###figured out correct room flag
 		self.found_room = False
 		self.the_room = None
+
 
 	##go sequantially to entrance points
 	def go_to_entrances(self):
@@ -399,7 +418,37 @@ class Bobot():
 				rospy.loginfo("The base failed to reach the desired pose")
 
 	def face_search(self):
+		##make the robot busy
+		self.idle = False 
+
+		self.timeof_last = time.time()
+		self.camera.timeof_last = time.time()
+
+		###check inside this function if robot is busy or not
 		self.camera.start_face_search()
+
+		while not self.idle:
+			#check if robot did nothing for 4 seconds
+			print(time.time() - self.camera.timeof_last)
+			if time.time() - self.camera.timeof_last >= 4:
+				self.idle = True
+
+
+		##take a break from all the colour searching
+		self.camera.stop_face_search()
+
+		##check if face
+		self.facer.start_search()
+
+		if self.facer.face_found:
+			##since all is aligned and everything take a screenshot
+			print("taking screenshot")
+			##todo: implement screenshot function
+			##todo: implement logic to figure out which character it is
+			self.facer.stop_search() 
+
+
+
 		
 
 
@@ -444,8 +493,12 @@ if __name__ == '__main__':
 
 
 			print('DEBUGGING FACE Search STUFF')
-			facerc = colourIdentifier()
-			facerc.start_face_search()
+			# facerc = colourIdentifier()
+			# facerc.start_face_search()
+			
+			robot = Bobot()
+			robot.face_search()
+			print("spam")
 			rospy.spin()
 
 
