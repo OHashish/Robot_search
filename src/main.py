@@ -456,16 +456,48 @@ class Bobot():
 
 		##similar to lab2 exercise 1
 
-		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
+		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
 		traverse_rate = rospy.Rate(10) #10hz
 
 		traversal_velocity = Twist()
 		traversal_velocity.linear.x = 0.5
 		traversal_velocity.angular.z = 0.5
 
+		last = time.time()
+
 		while not rospy.is_shutdown():
+
+			now = time.time()
+			print(now)
+			## if one second has passed since last stop
+			if int(now - last) == 4:
+				
+				#stop BOTtas
+				traversal_velocity.linear.x = 0.0
+				traversal_velocity.angular.z = 1
+				self.traverse_pub.publish(traversal_velocity)
+				
+				for i in range(60):
+					self.traverse_pub.publish(traversal_velocity)
+
+					#PERFORM CAMERA CHECK FOR IMAGES
+					traverse_rate.sleep()
+				
+				traversal_velocity.linear.x = 0.5
+				traversal_velocity.angular.z = 0.5
+				last = time.time()
+
+			else:
+
+				self.traverse_pub.publish(traversal_velocity)
+				traverse_rate.sleep()
+
+
+		if rospy.is_shutdown():
+			traversal_velocity.linear.x = 0
+			traversal_velocity.angular.z = 0
 			self.traverse_pub.publish(traversal_velocity)
-			traverse_rate.sleep()
+
 
 
 
@@ -522,7 +554,10 @@ if __name__ == '__main__':
 			BOTtas = Bobot()
 			print("BOTtas is born")
 			print('DEBUGGING GREEN ROOM TRAVERSAL')
-			BOTtas.green_room_traversal()
+			try:
+				BOTtas.green_room_traversal()
+			except rospy.ROSInterruptException:
+				pass
 			
 			
 
