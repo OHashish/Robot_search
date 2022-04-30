@@ -448,9 +448,24 @@ class Bobot():
 			self.facer.stop_search() 
 
 
+	def green_room_traversal(self):
 
-		
+		self.idle = False
 
+		print('you spin me right round baby right round')
+
+		##similar to lab2 exercise 1
+
+		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
+		traverse_rate = rospy.Rate(10) #10hz
+
+		traversal_velocity = Twist()
+		traversal_velocity.linear.x = 0.5
+		traversal_velocity.angular.z = 0.5
+
+		while not rospy.is_shutdown():
+			self.traverse_pub.publish(traversal_velocity)
+			traverse_rate.sleep()
 
 
 
@@ -481,6 +496,7 @@ if __name__ == '__main__':
 			robot.go_to_entrances()
 			robot.go_to_room()
 
+
 		###DEBUGGING SECTION, DELETE BEFORE SUBMISSION
 		if sys.argv[1] == 'debug_face':
 
@@ -500,6 +516,15 @@ if __name__ == '__main__':
 			robot.face_search()
 			print("spam")
 			rospy.spin()
+
+		if sys.argv[1] == 'circle_room':
+
+			BOTtas = Bobot()
+			print("BOTtas is born")
+			print('DEBUGGING GREEN ROOM TRAVERSAL')
+			BOTtas.green_room_traversal()
+			
+			
 
 
 	except rospy.ROSInterruptException:
