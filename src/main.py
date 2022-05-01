@@ -132,7 +132,7 @@ class colourIdentifier():
 		# Initialise any flags that signal a colour has been detected (default to false)
 		self.green_found = False
 		self.red_found = False
-
+		self.cluedo_found=False
 	def start_search(self):
 		self.green_found = False
 		# Remember to initialise a CvBridge() and set up a subscriber to the image topic you wish to use
@@ -143,6 +143,7 @@ class colourIdentifier():
 
 	def start_face_search(self):
 		self.red_found = False
+		self.cluedo_found=False
 		self.bridge = CvBridge()
 		self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
 		self.desired_velocity = Twist()
@@ -172,9 +173,11 @@ class colourIdentifier():
 		except CvBridgeError as e:
 			print(e)
 
-		# Set the upper and lower bounds for the colour you wish to identify - green
+		# # Set the upper and lower bounds for the colour you wish to identify - green
 		self.hsv_green_lower = np.array([25,52,72])
 		self.hsv_green_upper = np.array([102,255,255])
+
+		
 
 		# Convert the rgb image into a hsv image
 		self.hsv_img = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
@@ -242,15 +245,33 @@ class colourIdentifier():
 		except CvBridgeError as e:
 			print(e)
 
-		#Red Upper and Lower Bounds
-		self.hsv_red_lower = np.array([0,100,20])
-		self.hsv_red_upper = np.array([5,255,255])
+		#Scarlett Upper and Lower Bounds
+		self.hsv_scar_lower = np.array([0,100,20])
+		self.hsv_scar_upper = np.array([5,255,255])
+
+		#Plum Upper and Lower Bounds
+		self.hsv_plum_lower = np.array([150,100,20])
+		self.hsv_plum_upper = np.array([160,255,255])
+
+		#Mustard Upper and Lower Bounds
+		self.hsv_mus_lower = np.array([25,100,20])
+		self.hsv_mus_upper = np.array([35,255,255])
+
+		#Peacock Upper and Lower Bounds
+		self.hsv_pea_lower = np.array([80,100,20])
+		self.hsv_pea_upper = np.array([120,255,255])
 
 		self.hsv_img = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
-		self.mask = cv2.inRange(self.hsv_img,self.hsv_red_lower,self.hsv_red_upper)
-		self.result = cv2.bitwise_and(self.cv_image,self.cv_image,mask =self.mask)
+		self.mask_scar = cv2.inRange(self.hsv_img,self.hsv_scar_lower,self.hsv_scar_upper)
+		self.mask_plum = cv2.inRange(self.hsv_img,self.hsv_plum_lower,self.hsv_plum_upper)
+		self.mask_mus = cv2.inRange(self.hsv_img,self.hsv_mus_lower,self.hsv_mus_upper)
+		self.mask_pea = cv2.inRange(self.hsv_img,self.hsv_pea_lower,self.hsv_pea_upper)
+		self.comb_1=cv2.bitwise_or(self.mask_scar,self.mask_plum)
+		self.comb_2=cv2.bitwise_or(self.mask_mus,self.mask_pea)
+		self.comb=cv2.bitwise_or(self.comb_1,self.comb_2)
+		self.result = cv2.bitwise_and(self.cv_image,self.cv_image,mask =self.comb)
 
-		self.contours = cv2.findContours(self.mask,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+		self.contours = cv2.findContours(self.comb,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
 
 
 		if len(self.contours) > 0:
@@ -279,7 +300,7 @@ class colourIdentifier():
 						self.pub.publish(self.desired_velocity)
 				self.desired_velocity.angular.z = 0
 					
-			#If Red object is centered then start moving towards it
+			#If cluedo related color is centered then start moving towards it
 			if cv2.contourArea(c) < 15000 and cv2.contourArea(c)>50 and (cx<330 and cx>300):	
 				(x, y), radius = cv2.minEnclosingCircle(c)
 
@@ -287,12 +308,11 @@ class colourIdentifier():
 				self.desired_velocity.linear.x = 0.3
 				for i in range (30):
 					self.pub.publish(self.desired_velocity)
-			# if (self.red_found == True):
-			# 	rospy.loginfo("Red found!")
+
 			if cv2.contourArea(c) > 15000:
 				
-				rospy.loginfo("Red found!")
-				self.red_found = True
+				rospy.loginfo("Sus color found (cLeUDo???)!")
+				self.cluedo_found=True
 				self.desired_velocity.linear.x = 0
 				for i in range (30):
 					self.pub.publish(self.desired_velocity)
