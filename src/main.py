@@ -109,8 +109,8 @@ class faceDetector():
 		##convert to grayscale
 		
 		self.gray_image = cv2.cvtColor(self.cv_image, cv2.COLOR_RGB2GRAY)
-
-		self.cascade_classifier = cv2.CascadeClassifier('./../haarcascades/haarcascade_frontalface_default.xml')
+		the_path = os.path.expanduser('~/catkin_ws/src/group_project/haarcascades/haarcascade_frontalface_default.xml')
+		self.cascade_classifier = cv2.CascadeClassifier(the_path)
 
 		detected_objects = self.cascade_classifier.detectMultiScale(self.gray_image,1.3,5)
 
@@ -533,7 +533,8 @@ if __name__ == '__main__':
 			##read points from yaml files and do some sorting so coding is easier
 		if len(sys.argv) == 1:
 			points = []
-			with open("./../world/input_points.yaml", 'r') as stream:
+			the_path = os.path.expanduser('~/catkin_ws/src/group_project/world/input_points.yaml')
+			with open(the_path, 'r') as stream:
 				points = yaml.safe_load(stream)
 
 			##entrances
