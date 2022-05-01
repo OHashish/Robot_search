@@ -68,7 +68,7 @@ class GoToPose():
 	def shutdown(self):
 		if self.goal_sent:
 			self.move_base.cancel_goal()
-		rospy.loginfo("Stop")
+		rospy.loginfo("Dying")
 		rospy.sleep(1)
 
 
@@ -79,7 +79,7 @@ class faceDetector():
 		self.face_found = False
 
 	def start_search(self):
-		self.green_found = False
+		self.t_start = time.time()
 		# Remember to initialise a CvBridge() and set up a subscriber to the image topic you wish to use
 		self.bridge = CvBridge()
 
@@ -88,8 +88,8 @@ class faceDetector():
 
 	def stop_search(self):
 		self.image_sub.unregister()
-		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
-		self.face_found = False
+		#self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
+		
 
 	def callback2(self,data):
 		#just eat the messages we don't need
@@ -116,8 +116,10 @@ class faceDetector():
 
 		#Draw rectangles on the detected objects
 		if len(detected_objects) != 0:
-			print('FOUND A FACE')
+			rospy.loginfo('FOUND A FACE')
 			self.face_found = True
+			# the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/Cluedo_character.png')
+			# cv2.imwrite(the_image_path, self.cv_image)
 			for (x, y, width, height) in detected_objects:
 				cv2.rectangle(self.cv_image, (x, y),
 							(x + height, y + width),
@@ -126,6 +128,9 @@ class faceDetector():
 		cv2.namedWindow('face')
 		cv2.imshow('face', self.cv_image)
 		cv2.waitKey(3)
+
+		if time.time() - self.t_start >=4:
+			self.stop_search()
 		
 
 class colourIdentifier():
@@ -135,7 +140,9 @@ class colourIdentifier():
 		# Initialise any flags that signal a colour has been detected (default to false)
 		self.green_found = False
 		self.red_found = False
-		self.cluedo_found=False
+		self.blue_found = False
+		self.yellow_found = False
+		self.purple_found= False
 		self.timeof_last = None
 
 	def start_search(self):
@@ -150,7 +157,10 @@ class colourIdentifier():
 	###only works for red, todo: implement all colours
 	def start_face_search(self):
 		self.red_found = False
-		self.cluedo_found=False
+		self.blue_found = False
+		self.yellow_found = False
+		self.purple_found= False
+		
 		self.bridge = CvBridge()
 		self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
 		self.desired_velocity = Twist()
@@ -324,10 +334,44 @@ class colourIdentifier():
 			if cv2.contourArea(c) > 15000:
 				
 				rospy.loginfo("Sus color found (cLeUDo???)!")
-				self.cluedo_found=True
+				
 				self.desired_velocity.linear.x = 0
-				for i in range (30):
+				for i in range (10):
 					self.pub.publish(self.desired_velocity)
+
+				##scarlet?
+				color_contour = cv2.findContours(self.mask_scar,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+				if len(color_contour) > 0:
+
+					aux = max(color_contour, key=cv2.contourArea)
+					if cv2.contourArea(aux) > 14000:
+						#found scarlet
+						self.red_found = True
+				##plum?
+				color_contour = cv2.findContours(self.mask_plum,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+				if len(color_contour) > 0:
+					aux = max(color_contour, key=cv2.contourArea)
+					if cv2.contourArea(aux) > 14000:
+						#found plum
+						self.purple_found = True
+				##mustard?
+				color_contour = cv2.findContours(self.mask_mus,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+				
+				if len(color_contour) > 0:
+					aux = max(color_contour, key=cv2.contourArea)
+					if cv2.contourArea(aux) > 14000:
+						#found mustard
+						self.yellow_found = True
+				##peacock?
+				color_contour = cv2.findContours(self.mask_pea,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
+				if len(color_contour) > 0:
+					
+					aux = max(color_contour, key=cv2.contourArea)
+					if cv2.contourArea(aux) > 14000:
+						#found peacock
+						self.blue_found = True
+
+				
 				
 		#Show the resultant images you have created. You can show all of them or just the end result if you wish to.
 		cv2.namedWindow("dbg_window")
@@ -336,6 +380,10 @@ class colourIdentifier():
 
 		cv2.namedWindow("window")
 		cv2.imshow("window",self.result)
+
+
+		# cv2.namedWindow("dbgg")
+		# cv2.imshow("dbgg",self.resss)
 
 ###CLASS FOR THE ROBOT
 class Bobot():
@@ -452,7 +500,7 @@ class Bobot():
 
 		while not self.idle:
 			#check if robot did nothing for 4 seconds
-			print(time.time() - self.camera.timeof_last)
+			#print(time.time() - self.camera.timeof_last)
 			if time.time() - self.camera.timeof_last >= 4:
 				self.idle = True
 
@@ -460,15 +508,34 @@ class Bobot():
 		##take a break from all the colour searching
 		self.camera.stop_face_search()
 
+		
+
 		##check if face
 		self.facer.start_search()
 
+		#self.facer.stop_search()	
+		rospy.loginfo("ASDFASDFASFD")
+		print("HELLOOdsasdfasdfOO???")
+
+		time.sleep(0.300)
+		print(self.facer.face_found)
 		if self.facer.face_found:
-			##since all is aligned and everything take a screenshot
-			print("taking screenshot")
-			##todo: implement screenshot function
-			##todo: implement logic to figure out which character it is
-			self.facer.stop_search() 
+		 	##since all is aligned and everything take a screenshot
+			rospy.loginfo("taking screenshot")
+		# 	##todo: implement screenshot function
+		# 	##todo: implement logic to figure out which character it is
+			the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/Cluedo_character.png')
+			cv2.imwrite(the_image_path, self.facer.cv_image)
+		# 	if self.camera.red_found:
+		# 		print("REDREDREDREDRED")
+		# 	if self.camera.blue_found:
+		# 		print("BLUBLBUBLUBBLBLBLBLBUBLBUBL")
+		# 	if self.camera.yellow_found:
+		# 		print("YELYELELWLYLEL")
+		# 	if self.camera.purple_found:
+		# 		print("PURRPRURPURL")
+			
+		# #self.facer.stop_search() 
 
 
 	def green_room_traversal(self):
@@ -560,6 +627,7 @@ if __name__ == '__main__':
 			print('DEBUGGING FACE STUFF')
 			facer = faceDetector()
 			facer.start_search()
+			print("MAMAMAMAMAMA")
 			rospy.spin()
 		if sys.argv[1] == 'debug_face_search':
 
@@ -582,7 +650,14 @@ if __name__ == '__main__':
 				BOTtas.green_room_traversal()
 			except rospy.ROSInterruptException:
 				pass
+		
+
+		if sys.argv[1] == 'cluedo_identifier':
+
+			BOBBot = Bobot()
+			BOBBot.face_search()
 			
+
 			
 
 
