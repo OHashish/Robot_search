@@ -16,6 +16,8 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+import time
+
 ###JUST FOR DEBUGGING
 import os
 
@@ -87,7 +89,7 @@ class faceDetector():
 	def stop_search(self):
 		self.image_sub.unregister()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
-		self.green_found = False
+		self.face_found = False
 
 	def callback2(self,data):
 		#just eat the messages we don't need
@@ -115,6 +117,7 @@ class faceDetector():
 		#Draw rectangles on the detected objects
 		if len(detected_objects) != 0:
 			print('FOUND A FACE')
+			self.face_found = True
 			for (x, y, width, height) in detected_objects:
 				cv2.rectangle(self.cv_image, (x, y),
 							(x + height, y + width),
@@ -133,6 +136,8 @@ class colourIdentifier():
 		self.green_found = False
 		self.red_found = False
 		self.cluedo_found=False
+		self.timeof_last = None
+
 	def start_search(self):
 		self.green_found = False
 		# Remember to initialise a CvBridge() and set up a subscriber to the image topic you wish to use
@@ -141,6 +146,8 @@ class colourIdentifier():
 		# We covered which topic to subscribe to should you wish to receive image data
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback)
 
+
+	###only works for red, todo: implement all colours
 	def start_face_search(self):
 		self.red_found = False
 		self.cluedo_found=False
@@ -262,6 +269,8 @@ class colourIdentifier():
 		self.hsv_pea_upper = np.array([120,255,255])
 
 		self.hsv_img = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
+
+		#Combine all masks
 		self.mask_scar = cv2.inRange(self.hsv_img,self.hsv_scar_lower,self.hsv_scar_upper)
 		self.mask_plum = cv2.inRange(self.hsv_img,self.hsv_plum_lower,self.hsv_plum_upper)
 		self.mask_mus = cv2.inRange(self.hsv_img,self.hsv_mus_lower,self.hsv_mus_upper)
@@ -292,11 +301,13 @@ class colourIdentifier():
 					rospy.loginfo(cx)
 					self.desired_velocity.angular.z = -0.075
 					for i in range (1):
+						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 				if cx<300:
 					rospy.loginfo("Rotating Left ...")
 					self.desired_velocity.angular.z = 0.075
 					for i in range (1):
+						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 				self.desired_velocity.angular.z = 0
 					
@@ -307,6 +318,7 @@ class colourIdentifier():
 				cv2.circle(self.result,(int(x),int(y)),int(radius),[155,50,50],5)
 				self.desired_velocity.linear.x = 0.3
 				for i in range (30):
+					self.timeof_last = time.time()
 					self.pub.publish(self.desired_velocity)
 
 			if cv2.contourArea(c) > 15000:
@@ -328,7 +340,16 @@ class colourIdentifier():
 ###CLASS FOR THE ROBOT
 class Bobot():
 
-	def __init__(self, ents, mids):
+	def __init__(self, ents = None, mids = None):
+
+
+		###variable to see if robot is doing anything
+		# if the robot does not move for 5 seconds set it to True
+		# manage it in function calls
+		self.idle = True
+
+		#time of last action
+		self.timeof_last = None
 
 		##points
 		self.entrance_points = ents
@@ -342,6 +363,7 @@ class Bobot():
 		###figured out correct room flag
 		self.found_room = False
 		self.the_room = None
+
 
 	##go sequantially to entrance points
 	def go_to_entrances(self):
@@ -419,8 +441,85 @@ class Bobot():
 				rospy.loginfo("The base failed to reach the desired pose")
 
 	def face_search(self):
+		##make the robot busy
+		self.idle = False 
+
+		self.timeof_last = time.time()
+		self.camera.timeof_last = time.time()
+
+		###check inside this function if robot is busy or not
 		self.camera.start_face_search()
-		
+
+		while not self.idle:
+			#check if robot did nothing for 4 seconds
+			print(time.time() - self.camera.timeof_last)
+			if time.time() - self.camera.timeof_last >= 4:
+				self.idle = True
+
+
+		##take a break from all the colour searching
+		self.camera.stop_face_search()
+
+		##check if face
+		self.facer.start_search()
+
+		if self.facer.face_found:
+			##since all is aligned and everything take a screenshot
+			print("taking screenshot")
+			##todo: implement screenshot function
+			##todo: implement logic to figure out which character it is
+			self.facer.stop_search() 
+
+
+	def green_room_traversal(self):
+
+		self.idle = False
+
+		print('you spin me right round baby right round')
+
+		##similar to lab2 exercise 1
+
+		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
+		traverse_rate = rospy.Rate(10) #10hz
+
+		traversal_velocity = Twist()
+		traversal_velocity.linear.x = 0.5
+		traversal_velocity.angular.z = 0.5
+
+		last = time.time()
+
+		while not rospy.is_shutdown():
+
+			now = time.time()
+			print(now)
+			## if one second has passed since last stop
+			if int(now - last) == 4:
+				
+				#stop BOTtas
+				traversal_velocity.linear.x = 0.0
+				traversal_velocity.angular.z = 1
+				self.traverse_pub.publish(traversal_velocity)
+				
+				for i in range(60):
+					self.traverse_pub.publish(traversal_velocity)
+
+					#PERFORM CAMERA CHECK FOR IMAGES
+					traverse_rate.sleep()
+				
+				traversal_velocity.linear.x = 0.5
+				traversal_velocity.angular.z = 0.5
+				last = time.time()
+
+			else:
+
+				self.traverse_pub.publish(traversal_velocity)
+				traverse_rate.sleep()
+
+
+		if rospy.is_shutdown():
+			traversal_velocity.linear.x = 0
+			traversal_velocity.angular.z = 0
+			self.traverse_pub.publish(traversal_velocity)
 
 
 
@@ -452,6 +551,7 @@ if __name__ == '__main__':
 			robot.go_to_entrances()
 			robot.go_to_room()
 
+
 		###DEBUGGING SECTION, DELETE BEFORE SUBMISSION
 		if sys.argv[1] == 'debug_face':
 
@@ -466,7 +566,23 @@ if __name__ == '__main__':
 			print('DEBUGGING FACE Search STUFF')
 			facerc = colourIdentifier()
 			facerc.start_face_search()
+			
+			# robot = Bobot()
+			# robot.face_search()
+			# print("spam")
 			rospy.spin()
+
+		if sys.argv[1] == 'circle_room':
+
+			BOTtas = Bobot()
+			print("BOTtas is born")
+			print('DEBUGGING GREEN ROOM TRAVERSAL')
+			try:
+				BOTtas.green_room_traversal()
+			except rospy.ROSInterruptException:
+				pass
+			
+			
 
 
 	except rospy.ROSInterruptException:
