@@ -109,7 +109,7 @@ class faceDetector():
 		##convert to grayscale
 		
 		self.gray_image = cv2.cvtColor(self.cv_image, cv2.COLOR_RGB2GRAY)
-		the_path = os.path.expanduser('~/catkin_ws/src/group_project/haarcascades/haarcascade_frontalface_default.xml')
+		the_path = os.path.expanduser('~/catkin_ws/src/group25/haarcascades/haarcascade_frontalface_default.xml')
 		self.cascade_classifier = cv2.CascadeClassifier(the_path)
 
 		detected_objects = self.cascade_classifier.detectMultiScale(self.gray_image)
@@ -118,7 +118,7 @@ class faceDetector():
 		if len(detected_objects) != 0:
 			rospy.loginfo('FOUND A FACE')
 			self.face_found = True
-			# the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/Cluedo_character.png')
+			# the_image_path = os.path.expanduser('~/catkin_ws/src/group25/output/Cluedo_character.png')
 			# cv2.imwrite(the_image_path, self.cv_image)
 			for (x, y, width, height) in detected_objects:
 				cv2.rectangle(self.cv_image, (x, y),
@@ -495,7 +495,7 @@ class Bobot():
 			else:
 				rospy.loginfo("The base failed to reach the desired pose")
 
-	def face_search(self) -> bool:
+	def face_search(self):
 		##make the robot busy
 		self.idle = False 
 
@@ -531,9 +531,9 @@ class Bobot():
 			rospy.loginfo("taking screenshot")
 		# 	##todo: implement screenshot function
 		# 	##todo: implement logic to figure out which character it is
-			the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.png')
+			the_image_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.png')
 			cv2.imwrite(the_image_path, self.facer.cv_image)
-			the_text_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.txt')
+			the_text_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.txt')
 			f = open(the_text_path, 'w')
 			if self.camera.red_found:
 				f.write("Scarlet")
@@ -616,7 +616,7 @@ if __name__ == '__main__':
 			##read points from yaml files and do some sorting so coding is easier
 		if len(sys.argv) == 1:
 			points = []
-			the_path = os.path.expanduser('~/catkin_ws/src/group_project/world/input_points.yaml')
+			the_path = os.path.expanduser('~/catkin_ws/src/group25/world/input_points.yaml')
 			with open(the_path, 'r') as stream:
 				points = yaml.safe_load(stream)
 
