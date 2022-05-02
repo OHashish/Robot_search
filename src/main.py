@@ -112,7 +112,7 @@ class faceDetector():
 		the_path = os.path.expanduser('~/catkin_ws/src/group_project/haarcascades/haarcascade_frontalface_default.xml')
 		self.cascade_classifier = cv2.CascadeClassifier(the_path)
 
-		detected_objects = self.cascade_classifier.detectMultiScale(self.gray_image,1.3,5)
+		detected_objects = self.cascade_classifier.detectMultiScale(self.gray_image)
 
 		#Draw rectangles on the detected objects
 		if len(detected_objects) != 0:
@@ -191,8 +191,8 @@ class colourIdentifier():
 			print(e)
 
 		# # Set the upper and lower bounds for the colour you wish to identify - green
-		self.hsv_green_lower = np.array([25,52,72])
-		self.hsv_green_upper = np.array([102,255,255])
+		self.hsv_green_lower = np.array([65,52,72])
+		self.hsv_green_upper = np.array([75,255,255])
 
 		
 
@@ -271,7 +271,7 @@ class colourIdentifier():
 		self.hsv_plum_upper = np.array([160,255,255])
 
 		#Mustard Upper and Lower Bounds
-		self.hsv_mus_lower = np.array([25,100,20])
+		self.hsv_mus_lower = np.array([23,100,20])
 		self.hsv_mus_upper = np.array([35,255,255])
 
 		#Peacock Upper and Lower Bounds
@@ -517,7 +517,7 @@ class Bobot():
 		rospy.loginfo("ASDFASDFASFD")
 		print("HELLOOdsasdfasdfOO???")
 
-		time.sleep(2)
+		time.sleep(5)
 		print(self.facer.face_found)
 		if self.facer.face_found:
 		 	##since all is aligned and everything take a screenshot
@@ -536,6 +536,8 @@ class Bobot():
 				f.write("Mustard")
 			if self.camera.purple_found:
 				f.write("Plum")
+			time.sleep(3)
+			#rospy.shutdown()
 			
 		self.facer.stop_search() 
 
@@ -575,6 +577,7 @@ class Bobot():
 					self.traverse_pub.publish(traversal_velocity)
 
 					#PERFORM CAMERA CHECK FOR IMAGES
+					self.face_search()
 					traverse_rate.sleep()
 				
 				traversal_velocity.linear.x = 0.5
@@ -622,10 +625,11 @@ if __name__ == '__main__':
 
 			robot.go_to_entrances()
 			robot.go_to_room()
+			robot.green_room_traversal()
 
 
 		###DEBUGGING SECTION, DELETE BEFORE SUBMISSION
-		if sys.argv[1] == 'debug_face':
+		elif sys.argv[1] == 'debug_face':
 
 
 			print('DEBUGGING FACE STUFF')
@@ -633,7 +637,7 @@ if __name__ == '__main__':
 			facer.start_search()
 			print("MAMAMAMAMAMA")
 			rospy.spin()
-		if sys.argv[1] == 'debug_face_search':
+		elif sys.argv[1] == 'debug_face_search':
 
 
 			print('DEBUGGING FACE Search STUFF')
@@ -645,7 +649,7 @@ if __name__ == '__main__':
 			# print("spam")
 			rospy.spin()
 
-		if sys.argv[1] == 'circle_room':
+		elif sys.argv[1] == 'circle_room':
 
 			BOTtas = Bobot()
 			print("BOTtas is born")
@@ -656,10 +660,11 @@ if __name__ == '__main__':
 				pass
 		
 
-		if sys.argv[1] == 'cluedo_identifier':
+		elif sys.argv[1] == 'cluedo_identifier':
 
 			BOBBot = Bobot()
 			BOBBot.face_search()
+			print("Done?")
 			
 
 			
