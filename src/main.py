@@ -517,7 +517,7 @@ class Bobot():
 		rospy.loginfo("ASDFASDFASFD")
 		print("HELLOOdsasdfasdfOO???")
 
-		time.sleep(0.300)
+		time.sleep(2)
 		print(self.facer.face_found)
 		if self.facer.face_found:
 		 	##since all is aligned and everything take a screenshot
@@ -527,7 +527,7 @@ class Bobot():
 			the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.png')
 			cv2.imwrite(the_image_path, self.facer.cv_image)
 			the_text_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.txt')
-			f = open(the_image_path, 'w')
+			f = open(the_text_path, 'w')
 			if self.camera.red_found:
 				f.write("Scarlet")
 			if self.camera.blue_found:
