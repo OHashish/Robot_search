@@ -524,18 +524,22 @@ class Bobot():
 			rospy.loginfo("taking screenshot")
 		# 	##todo: implement screenshot function
 		# 	##todo: implement logic to figure out which character it is
-			the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/Cluedo_character.png')
+			the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.png')
 			cv2.imwrite(the_image_path, self.facer.cv_image)
-		# 	if self.camera.red_found:
-		# 		print("REDREDREDREDRED")
-		# 	if self.camera.blue_found:
-		# 		print("BLUBLBUBLUBBLBLBLBLBUBLBUBL")
-		# 	if self.camera.yellow_found:
-		# 		print("YELYELELWLYLEL")
-		# 	if self.camera.purple_found:
-		# 		print("PURRPRURPURL")
+			the_text_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.txt')
+			f = open(the_image_path, 'w')
+			if self.camera.red_found:
+				f.write("Scarlet")
+			if self.camera.blue_found:
+				f.write("Peacock")
+			if self.camera.yellow_found:
+				f.write("Mustard")
+			if self.camera.purple_found:
+				f.write("Plum")
 			
-		# #self.facer.stop_search() 
+		self.facer.stop_search() 
+
+		cv2.destroyAllWindows()
 
 
 	def green_room_traversal(self):
