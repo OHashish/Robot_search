@@ -418,6 +418,7 @@ class Bobot():
 		###figured out correct room flag
 		self.found_room = False
 		self.the_room = None
+		self.endGoal = False
 
 
 	##go sequantially to entrance points
@@ -497,7 +498,8 @@ class Bobot():
 
 	def face_search(self):
 		##make the robot busy
-		self.idle = False 
+		self.idle = False
+		self.endGoal = False
 
 		self.timeof_last = time.time()
 		self.camera.timeof_last = time.time()
@@ -537,12 +539,16 @@ class Bobot():
 			f = open(the_text_path, 'w')
 			if self.camera.red_found:
 				f.write("Scarlet")
+				self.endGoal = True
 			if self.camera.blue_found:
 				f.write("Peacock")
+				self.endGoal = True
 			if self.camera.yellow_found:
 				f.write("Mustard")
+				self.endGoal = True
 			if self.camera.purple_found:
 				f.write("Plum")
+				self.endGoal = True
 			time.sleep(3)
 			return True
 			#rospy.shutdown()
@@ -570,7 +576,7 @@ class Bobot():
 
 		last = time.time()
 
-		while not rospy.is_shutdown():
+		while self.endGoal == False:
 
 			now = time.time()
 			print(now)
@@ -587,6 +593,13 @@ class Bobot():
 
 					#PERFORM CAMERA CHECK FOR IMAGES
 					self.face_search()
+
+					if self.endGoal == True:
+						rospy.loginfo('BOTtas found the Cluedo Picture')
+						traversal_velocity.linear.x = 0.0
+						traversal_velocity.angular.z = 0.0
+						break
+						
 					traverse_rate.sleep()
 				
 				traversal_velocity.linear.x = 0.5
