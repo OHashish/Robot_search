@@ -13,7 +13,7 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 
 from geometry_msgs.msg import Twist, Vector3
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, LaserScan
 from cv_bridge import CvBridge, CvBridgeError
 
 import time
@@ -421,6 +421,7 @@ class Bobot():
 		self.endGoal = False
 
 
+
 	##go sequantially to entrance points
 	def go_to_entrances(self):
 
@@ -562,12 +563,11 @@ class Bobot():
 	def green_room_traversal(self):
 
 		self.idle = False
-
+		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
+		
 		print('you spin me right round baby right round')
 
-		##similar to lab2 exercise 1
-
-		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
+		##similar to lab2 exercise 1		
 		traverse_rate = rospy.Rate(10) #10hz
 
 		traversal_velocity = Twist()
@@ -578,8 +578,10 @@ class Bobot():
 
 		while self.endGoal == False:
 
+			#self.check_distance_to_obstacle()
+
 			now = time.time()
-			print(now)
+
 			## if one second has passed since last stop
 			if int(now - last) == 4:
 				
@@ -617,6 +619,29 @@ class Bobot():
 			traversal_velocity.angular.z = 0
 			self.traverse_pub.publish(traversal_velocity)
 
+
+	def check_distance_to_obstacle(self):
+
+		self.obstacle_sub = rospy.Subscriber('/scan', LaserScan, obstacle_distance)
+
+		rospy.spin()
+
+
+def obstacle_distance(msg):
+
+	print(msg.ranges[360])
+
+	spin_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
+	spin_velocity = Twist()
+
+	#setting speed to turn around
+	spin_velocity.linear.x = 0.0
+	spin_velocity.angular.z = 1
+
+	#if the robot is too close to obstacle
+	if msg.ranges[360] < 1:
+		for p in range(30):	
+			spin_pub.publish(spin_velocity)
 
 
 
