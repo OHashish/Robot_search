@@ -267,7 +267,7 @@ class colourIdentifier():
 		self.hsv_scar_upper = np.array([5,255,255])
 
 		#Plum Upper and Lower Bounds
-		self.hsv_plum_lower = np.array([150,100,20])
+		self.hsv_plum_lower = np.array([145,100,20])
 		self.hsv_plum_upper = np.array([160,255,255])
 
 		#Mustard Upper and Lower Bounds
@@ -322,16 +322,23 @@ class colourIdentifier():
 				self.desired_velocity.angular.z = 0
 					
 			#If cluedo related color is centered then start moving towards it
-			if cv2.contourArea(c) < 15000 and cv2.contourArea(c)>50 and (cx<330 and cx>300):	
+			if cv2.contourArea(c) < 14000 and cv2.contourArea(c)>50 and (cx<330 and cx>300):	
 				(x, y), radius = cv2.minEnclosingCircle(c)
 
 				cv2.circle(self.result,(int(x),int(y)),int(radius),[155,50,50],5)
 				self.desired_velocity.linear.x = 0.3
-				for i in range (30):
+				for i in range (15):
 					self.timeof_last = time.time()
 					self.pub.publish(self.desired_velocity)
 
-			if cv2.contourArea(c) > 15000:
+			elif cv2.contourArea(c) > 16000:
+				self.desired_velocity.linear.x = -0.3
+				for i in range (15):
+					self.timeof_last = time.time()
+					self.pub.publish(self.desired_velocity)
+
+
+			elif cv2.contourArea(c) > 14500:
 				
 				rospy.loginfo("Sus color found (cLeUDo???)!")
 				
@@ -488,7 +495,7 @@ class Bobot():
 			else:
 				rospy.loginfo("The base failed to reach the desired pose")
 
-	def face_search(self):
+	def face_search(self) -> bool:
 		##make the robot busy
 		self.idle = False 
 
@@ -537,11 +544,13 @@ class Bobot():
 			if self.camera.purple_found:
 				f.write("Plum")
 			time.sleep(3)
+			return True
 			#rospy.shutdown()
 			
 		self.facer.stop_search() 
 
 		cv2.destroyAllWindows()
+		return False
 
 
 	def green_room_traversal(self):
