@@ -163,6 +163,8 @@ class colourIdentifier():
 		self.yellow_found = False
 		self.purple_found= False
 		self.angle=0
+		self.clockwise=0
+		self.closest_distance=0
 		self.bridge = CvBridge()
 		self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
 		self.desired_velocity = Twist()
@@ -308,6 +310,7 @@ class colourIdentifier():
 			except ZeroDivisionError:
 				print("divzero")
 			#Rotate Robot until red object is at the center
+
 			if cv2.contourArea(c) < 15000 and cv2.contourArea(c)>50:
 				self.desired_velocity.linear.x = 0
 				if cx>330:
@@ -324,19 +327,63 @@ class colourIdentifier():
 						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 				self.desired_velocity.angular.z = 0
-					
+
+				
+
 			#If cluedo related color is centered then start moving towards it
-			if cv2.contourArea(c) < 14000 and cv2.contourArea(c)>50 and (cx<330 and cx>300):	
+			if cv2.contourArea(c) < 14000 and cv2.contourArea(c)>50 and (cx<330 and cx>300) :
+				traverse_rate = rospy.Rate(10) #10hz
+				print(self.angle)
+
+				#Adjust angle
+				if self.angle>132:
+					self.desired_velocity.linear.x = 0
+					correction=math.radians(180-self.angle)
+
+					#if spon is 1 rotate clockwise else spin counter clocwise
+					spon=self.clockwise
+					if	spon==1:
+						self.desired_velocity.angular.z = correction
+						for i in range (10):
+							self.pub.publish(self.desired_velocity)
+							traverse_rate.sleep()
+						self.desired_velocity.angular.z=0
+					else:
+						self.desired_velocity.angular.z = -correction
+						for i in range (10):
+							self.pub.publish(self.desired_velocity)
+							traverse_rate.sleep()
+						self.desired_velocity.angular.z=0
+
+					self.desired_velocity.linear.x=0.5
+					for i in range (10):
+						self.pub.publish(self.desired_velocity)
+						traverse_rate.sleep()
+					self.desired_velocity.linear.x = 0
+
+					if spon==1:
+						self.desired_velocity.angular.z=-correction
+						for i in range (17):
+							self.pub.publish(self.desired_velocity)
+							traverse_rate.sleep()
+					else:
+						self.desired_velocity.angular.z=correction
+						for i in range (17):
+							self.pub.publish(self.desired_velocity)
+							traverse_rate.sleep()
+					
+				self.desired_velocity.angular.z=0	
 				(x, y), radius = cv2.minEnclosingCircle(c)
 
 				cv2.circle(self.result,(int(x),int(y)),int(radius),[155,50,50],5)
-				self.desired_velocity.linear.x = 0.3
-				for i in range (15):
-					self.timeof_last = time.time()
-					self.pub.publish(self.desired_velocity)
+				if self.closest_distance>0.6:
+					self.desired_velocity.linear.x = 0.1
+					for i in range (15):
+						self.timeof_last = time.time()
+						self.pub.publish(self.desired_velocity)
 
 			elif cv2.contourArea(c) > 16000:
-				self.desired_velocity.linear.x = -0.3
+				self.desired_velocity.linear.x = -0.1
 				for i in range (15):
 					self.timeof_last = time.time()
 					self.pub.publish(self.desired_velocity)
@@ -350,20 +397,6 @@ class colourIdentifier():
 				for i in range (10):
 					self.pub.publish(self.desired_velocity)
 				
-				#This is the angle to the wall
-				#TODO:Add angle correction so the robot stops acting sus
-
-				print(self.angle)
-				# if self.angle>120:
-				# 	self.desired_velocity.linear.x = 0
-				# 	print(180-self.angle)
-				# 	correction=math.radians(180-self.angle)-(math.radians(180-self.angle)*0.4)
-				# 	self.desired_velocity.angular.z = correction
-				# 	for i in range (10):
-				# 		self.pub.publish(self.desired_velocity)
-				# 	self.desired_velocity.angular.z=0
-					
-
 				##scarlet?
 				color_contour = cv2.findContours(self.mask_scar,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
 				if len(color_contour) > 0:
@@ -415,10 +448,17 @@ class colourIdentifier():
 		#To be used to fix the robot acting sus when approaching wall in a weird(steep) angle 
 		#Two angles are calculated because if another object is in the frame it calculates
 		#the angle relating to it not the wall
+
+		#Uses cosine and sin laws to get angles and sies
 		
+		#Remove NaN from list
 		newlist = [x for x in msg.ranges if np.isnan(x) == False]
+		
+		#Midway of the right vision span section
 		val_1=int(math.floor( len(newlist)/4 ))
+		#Midway of the left vison span section
 		val_2=int(math.floor( (len(newlist)/2 )+ (len(newlist)/4) ))
+		#Center line
 		val_3=int(math.floor( (len(newlist)/2 ) ))
 
 		if newlist[val_1]>newlist[val_2]:
@@ -440,7 +480,14 @@ class colourIdentifier():
 			self.angle=ang_to_wall
 		else:
 			self.angle=ang_to_wall_2
-		
+
+
+		self.closest_distance=min(newlist)
+		if newlist[0]<newlist[len(newlist)-1]:
+			self.clockwise=1
+		else:
+			self.clockwise=-1
+
 
 ###CLASS FOR THE ROBOT
 class Bobot():
