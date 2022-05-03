@@ -17,6 +17,7 @@ from sensor_msgs.msg import Image, LaserScan
 from cv_bridge import CvBridge, CvBridgeError
 
 import time
+import math
 
 ###JUST FOR DEBUGGING
 import os
@@ -160,11 +161,13 @@ class colourIdentifier():
 		self.blue_found = False
 		self.yellow_found = False
 		self.purple_found= False
-		
+		self.angle=0
 		self.bridge = CvBridge()
 		self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
 		self.desired_velocity = Twist()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback3)
+		self.angle_sub = rospy.Subscriber('/scan', LaserScan, self.get_angle)
+		
 	def stop_face_search(self):
 		self.image_sub.unregister()
 	def stop_search(self):
@@ -345,6 +348,10 @@ class colourIdentifier():
 				self.desired_velocity.linear.x = 0
 				for i in range (10):
 					self.pub.publish(self.desired_velocity)
+				
+				#This is the angle to the wall
+				#TODO:Add angle correction so the robot stops acting sus
+				print(self.angle)
 
 				##scarlet?
 				color_contour = cv2.findContours(self.mask_scar,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
@@ -391,6 +398,20 @@ class colourIdentifier():
 
 		# cv2.namedWindow("dbgg")
 		# cv2.imshow("dbgg",self.resss)
+
+	def get_angle(self,msg):
+		#Calculates angle of wall (any object) relating the robot (middle line)
+		#To be used to fix the robot acting sus when approaching wall in a weird(steep) angle 
+
+		dist1=max(msg.ranges)
+		dist2=msg.ranges[320]
+		dist_diff=math.sqrt((((dist1)**2)+((dist2)**2))-(2*(dist1)*(dist2)*np.cos(math.radians(30))))
+		angle_1=math.asin((np.sin(math.radians(30))/dist_diff)*dist1)
+		# angle_2=math.asin((np.sin(math.radians(30))/dist_diff)*dist2)
+		ang_to_wall=180-math.degrees(angle_1)
+		self.angle=ang_to_wall
+		
+		# print(math.degrees(angle_2))
 
 ###CLASS FOR THE ROBOT
 class Bobot():
@@ -626,7 +647,31 @@ class Bobot():
 
 		rospy.spin()
 
+	def random_points_method(self):
+		#TODO:1.Generate random points relating to the robot
+		#2.remove any points that are close to each other
+		#3.catch exception if the path is out of bounds
+		#4.Get path distance and add a reasonable threshold so it doesn't go 
+		# to another room (path to room will be very long)
+		x = self.mid_points[0][0]# SPECIFY X COORDINATE HERE
+		y = self.mid_points[0][1]# SPECIFY Y COORDINATE HERE
+		print(x)
+		print(y)
+		theta = 0# SPECIFY THETA (ROTATION) HERE
+		position = {'x': x, 'y' : y}
+		quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(theta/2.0), 'r4' : np.cos(theta/2.0)}
 
+		rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
+		success = self.navigator.goto(position, quaternion)
+		rospy.spin()
+		
+
+
+	
+	
+	
+
+	
 def obstacle_distance(msg):
 
 	print(msg.ranges[360])
@@ -706,6 +751,26 @@ if __name__ == '__main__':
 			except rospy.ROSInterruptException:
 				pass
 		
+		elif sys.argv[1] == 'random_room':
+
+			points = []
+			the_path = os.path.expanduser('~/catkin_ws/src/group25/world/input_points.yaml')
+			with open(the_path, 'r') as stream:
+				points = yaml.safe_load(stream)
+
+			mids = []
+			mids.append(points['room1_centre_xy'])
+			mids.append(points['room2_centre_xy'])
+
+			##make a depressed little robot (his name is Bobot)
+			robot = Bobot(ents,mids)
+
+			print("BOTtas is born")
+			print('DEBUGGING RANDOM ROOM ')
+			try:
+				robot.random_points_method()
+			except rospy.ROSInterruptException:
+				pass
 
 		elif sys.argv[1] == 'cluedo_identifier':
 
