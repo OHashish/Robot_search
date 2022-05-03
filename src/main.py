@@ -571,40 +571,41 @@ class Bobot():
 		
 
 		##check if face
-		self.facer.start_search()
-
-		#self.facer.stop_search()	
-		rospy.loginfo("ASDFASDFASFD")
-		print("HELLOOdsasdfasdfOO???")
-
-		time.sleep(5)
-		print(self.facer.face_found)
-		if self.facer.face_found:
-		 	##since all is aligned and everything take a screenshot
-			rospy.loginfo("taking screenshot")
-		# 	##todo: implement screenshot function
-		# 	##todo: implement logic to figure out which character it is
-			the_image_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.png')
-			cv2.imwrite(the_image_path, self.facer.cv_image)
-			the_text_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.txt')
-			f = open(the_text_path, 'w')
-			if self.camera.red_found:
-				f.write("Scarlet")
-				self.endGoal = True
-			if self.camera.blue_found:
-				f.write("Peacock")
-				self.endGoal = True
-			if self.camera.yellow_found:
-				f.write("Mustard")
-				self.endGoal = True
-			if self.camera.purple_found:
-				f.write("Plum")
-				self.endGoal = True
-			time.sleep(3)
-			return True
-			#rospy.shutdown()
+		if self.camera.blue_found or self.camera.green_found or self.camera.red_found or self.camera.yellow_found:
 			
-		self.facer.stop_search() 
+			self.facer.start_search()
+
+			#self.facer.stop_search()	
+			rospy.loginfo("ASDFASDFASFD")
+			print("HELLOOdsasdfasdfOO???")
+
+			time.sleep(5)
+			print(self.facer.face_found)
+			if self.facer.face_found:
+				##since all is aligned and everything take a screenshot
+				rospy.loginfo("taking screenshot")
+	
+				the_image_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.png')
+				cv2.imwrite(the_image_path, self.facer.cv_image)
+				the_text_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.txt')
+				f = open(the_text_path, 'w')
+				if self.camera.red_found:
+					f.write("Scarlet")
+					self.endGoal = True
+				if self.camera.blue_found:
+					f.write("Peacock")
+					self.endGoal = True
+				if self.camera.yellow_found:
+					f.write("Mustard")
+					self.endGoal = True
+				if self.camera.purple_found:
+					f.write("Plum")
+					self.endGoal = True
+				time.sleep(3)
+				return True
+				
+			
+			self.facer.stop_search() 
 
 		cv2.destroyAllWindows()
 		return False
