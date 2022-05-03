@@ -19,6 +19,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import time
 import math
 
+
 ###JUST FOR DEBUGGING
 import os
 
@@ -351,7 +352,17 @@ class colourIdentifier():
 				
 				#This is the angle to the wall
 				#TODO:Add angle correction so the robot stops acting sus
+
 				print(self.angle)
+				# if self.angle>120:
+				# 	self.desired_velocity.linear.x = 0
+				# 	print(180-self.angle)
+				# 	correction=math.radians(180-self.angle)-(math.radians(180-self.angle)*0.4)
+				# 	self.desired_velocity.angular.z = correction
+				# 	for i in range (10):
+				# 		self.pub.publish(self.desired_velocity)
+				# 	self.desired_velocity.angular.z=0
+					
 
 				##scarlet?
 				color_contour = cv2.findContours(self.mask_scar,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
@@ -402,16 +413,34 @@ class colourIdentifier():
 	def get_angle(self,msg):
 		#Calculates angle of wall (any object) relating the robot (middle line)
 		#To be used to fix the robot acting sus when approaching wall in a weird(steep) angle 
+		#Two angles are calculated because if another object is in the frame it calculates
+		#the angle relating to it not the wall
+		
+		newlist = [x for x in msg.ranges if np.isnan(x) == False]
+		val_1=int(math.floor( len(newlist)/4 ))
+		val_2=int(math.floor( (len(newlist)/2 )+ (len(newlist)/4) ))
+		val_3=int(math.floor( (len(newlist)/2 ) ))
 
-		dist1=max(msg.ranges)
-		dist2=msg.ranges[320]
+		if newlist[val_1]>newlist[val_2]:
+			dist1=newlist[val_1]
+		else:
+			dist1=newlist[val_2]
+		
+		dist2=newlist[val_3]
 		dist_diff=math.sqrt((((dist1)**2)+((dist2)**2))-(2*(dist1)*(dist2)*np.cos(math.radians(30))))
 		angle_1=math.asin((np.sin(math.radians(30))/dist_diff)*dist1)
-		# angle_2=math.asin((np.sin(math.radians(30))/dist_diff)*dist2)
 		ang_to_wall=180-math.degrees(angle_1)
-		self.angle=ang_to_wall
+
+		dist1=max(newlist)
+		dist_diff=math.sqrt((((dist1)**2)+((dist2)**2))-(2*(dist1)*(dist2)*np.cos(math.radians(30))))
+		angle_1=math.asin((np.sin(math.radians(30))/dist_diff)*dist1)
+		ang_to_wall_2=180-math.degrees(angle_1)
+
+		if ang_to_wall>ang_to_wall_2:
+			self.angle=ang_to_wall
+		else:
+			self.angle=ang_to_wall_2
 		
-		# print(math.degrees(angle_2))
 
 ###CLASS FOR THE ROBOT
 class Bobot():
