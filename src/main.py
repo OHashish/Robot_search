@@ -618,7 +618,7 @@ class Bobot():
 		
 
 		##check if face
-		if self.camera.blue_found or self.camera.green_found or self.camera.red_found or self.camera.yellow_found:
+		if self.camera.blue_found or self.camera.green_found or self.camera.red_found or self.camera.yellow_found:						
 			
 			self.facer.start_search()
 
