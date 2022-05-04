@@ -111,7 +111,7 @@ class faceDetector():
 		##convert to grayscale
 		
 		self.gray_image = cv2.cvtColor(self.cv_image, cv2.COLOR_RGB2GRAY)
-		the_path = os.path.expanduser('~/catkin_ws/src/group25/haarcascades/haarcascade_frontalface_default.xml')
+		the_path = os.path.expanduser('~/catkin_ws/src/group_project/haarcascades/haarcascade_frontalface_default.xml')
 		self.cascade_classifier = cv2.CascadeClassifier(the_path)
 
 		detected_objects = self.cascade_classifier.detectMultiScale(self.gray_image)
@@ -120,7 +120,7 @@ class faceDetector():
 		if len(detected_objects) != 0:
 			rospy.loginfo('FOUND A FACE')
 			self.face_found = True
-			# the_image_path = os.path.expanduser('~/catkin_ws/src/group25/output/Cluedo_character.png')
+			# the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/Cluedo_character.png')
 			# cv2.imwrite(the_image_path, self.cv_image)
 			for (x, y, width, height) in detected_objects:
 				cv2.rectangle(self.cv_image, (x, y),
@@ -311,7 +311,7 @@ class colourIdentifier():
 				print("divzero")
 			#Rotate Robot until red object is at the center
 
-			if cv2.contourArea(c) < 15000 and cv2.contourArea(c)>50:
+			if cv2.contourArea(c) < 12000 and cv2.contourArea(c)>50:
 				self.desired_velocity.linear.x = 0
 				if cx>330:
 					rospy.loginfo("Rotating Right...")
@@ -331,7 +331,7 @@ class colourIdentifier():
 				
 
 			#If cluedo related color is centered then start moving towards it
-			if cv2.contourArea(c) < 14000 and cv2.contourArea(c)>50 and (cx<330 and cx>300) :
+			if cv2.contourArea(c) < 12000 and cv2.contourArea(c)>50 and (cx<330 and cx>300) :
 				traverse_rate = rospy.Rate(10) #10hz
 				print(self.angle)
 
@@ -384,12 +384,12 @@ class colourIdentifier():
 
 			elif cv2.contourArea(c) > 16000:
 				self.desired_velocity.linear.x = -0.1
-				for i in range (15):
+				for i in range (5):
 					self.timeof_last = time.time()
 					self.pub.publish(self.desired_velocity)
 
 
-			elif cv2.contourArea(c) > 14500:
+			elif cv2.contourArea(c) > 12500:
 				
 				rospy.loginfo("Sus color found (cLeUDo???)!")
 				
@@ -402,14 +402,14 @@ class colourIdentifier():
 				if len(color_contour) > 0:
 
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 14000:
+					if cv2.contourArea(aux) > 12000:
 						#found scarlet
 						self.red_found = True
 				##plum?
 				color_contour = cv2.findContours(self.mask_plum,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
 				if len(color_contour) > 0:
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 14000:
+					if cv2.contourArea(aux) > 12000:
 						#found plum
 						self.purple_found = True
 				##mustard?
@@ -417,7 +417,7 @@ class colourIdentifier():
 				
 				if len(color_contour) > 0:
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 14000:
+					if cv2.contourArea(aux) > 12000:
 						#found mustard
 						self.yellow_found = True
 				##peacock?
@@ -425,15 +425,15 @@ class colourIdentifier():
 				if len(color_contour) > 0:
 					
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 14000:
+					if cv2.contourArea(aux) > 12000:
 						#found peacock
 						self.blue_found = True
 
 				
 				
 		#Show the resultant images you have created. You can show all of them or just the end result if you wish to.
-		cv2.namedWindow("dbg_window")
-		cv2.imshow("dbg_window",self.cv_image)
+		cv2.namedWindow("zdbg_window")
+		cv2.imshow("zdbg_window",self.cv_image)
 		cv2.waitKey(3)
 
 		cv2.namedWindow("window")
@@ -530,61 +530,61 @@ class Bobot():
 
 
 	##go sequantially to entrance points
-	def go_to_entrances(self):
+	def go_to_entrance(self):
 
-		for i in range(len(self.entrance_points)):
+		# Customize the following values so they are appropriate for your location
+		x = self.entrance_points[0][0]# SPECIFY X COORDINATE HERE
+		y = self.entrance_points[0][1]# SPECIFY Y COORDINATE HERE
 
-			##IF ROOM IS FOUND THEN BREAK
-			if self.found_room:
-				break
+		theta = 0# SPECIFY THETA (ROTATION) HERE
+		position = {'x': x, 'y' : y}
+		quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(theta/2.0), 'r4' : np.cos(theta/2.0)}
 
-			# Customize the following values so they are appropriate for your location
-			x = self.entrance_points[i][0]# SPECIFY X COORDINATE HERE
-			y = self.entrance_points[i][1]# SPECIFY Y COORDINATE HERE
+		rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
+		success = self.navigator.goto(position, quaternion)
 
-			theta = 0# SPECIFY THETA (ROTATION) HERE
-			position = {'x': x, 'y' : y}
-			quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(theta/2.0), 'r4' : np.cos(theta/2.0)}
+		if success:
+			rospy.loginfo("Hooray, reached the desired pose")
 
-			rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
-			success = self.navigator.goto(position, quaternion)
+			##take some time off to avoid overspin/skidding
+			rospy.sleep(2)
 
-			if success:
-				rospy.loginfo("Hooray, reached the desired pose")
+			###LOOK FOR CIRCLE
+			self.camera.start_search()
 
-				##take some time off to avoid overspin/skidding
-				rospy.sleep(2)
+			##do a full spin abusing navigator class
 
-				###LOOK FOR CIRCLE
-				self.camera.start_search()
+			for n_theta in [np.pi/3, 2/3*np.pi, np.pi, 4/3 * np.pi, 5/3*np.pi, 0]:
 
-				##do a full spin abusing navigator class
+				quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(n_theta/2.0), 'r4' : np.cos(n_theta/2.0)}
+				rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
+				self.navigator.goto(position, quaternion)
+				#chill
+				rospy.sleep(3)
 
-				for n_theta in [np.pi/3, 2/3*np.pi, np.pi, 4/3 * np.pi, 5/3*np.pi, 0]:
+				##check if green was found
+				if self.camera.green_found:
 
-					quaternion = {'r1' : 0.000, 'r2' : 0.000, 'r3' : np.sin(n_theta/2.0), 'r4' : np.cos(n_theta/2.0)}
-					rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
-					self.navigator.goto(position, quaternion)
-					#chill
-					rospy.sleep(3)
+					##stop searching
+					self.camera.stop_search()
+					self.found_room = True
+					self.the_room = self.mid_points[0]
+					rospy.sleep(1)
+					return True
 
-					##check if green was found
-					if self.camera.green_found:
+			##stop searching
+			self.camera.stop_search()
 
-						##stop searching
-						self.camera.stop_search()
-						self.found_room = True
-						self.the_room = self.mid_points[i]
-						break
+		else:
+			rospy.loginfo("The base failed to reach the desired pose")
 
-				##stop searching
-				self.camera.stop_search()
+		if not self.camera.green_found:
+			self.found_room = True
+			self.the_room = self.mid_points[1]
 
-			else:
-				rospy.loginfo("The base failed to reach the desired pose")
-
-			# Sleep to give the last log messages time to be sent
+		# Sleep to give the last log messages time to be sent
 			rospy.sleep(1)
+			return True
 
 	def go_to_room(self):
 
@@ -628,7 +628,7 @@ class Bobot():
 		
 
 		##check if face
-		if self.camera.blue_found or self.camera.green_found or self.camera.red_found or self.camera.yellow_found:						
+		if self.camera.blue_found or self.camera.purple_found or self.camera.red_found or self.camera.yellow_found:						
 			
 			self.facer.start_search()
 
@@ -642,9 +642,9 @@ class Bobot():
 				##since all is aligned and everything take a screenshot
 				rospy.loginfo("taking screenshot")
 	
-				the_image_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.png')
+				the_image_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.png')
 				cv2.imwrite(the_image_path, self.facer.cv_image)
-				the_text_path = os.path.expanduser('~/catkin_ws/src/group25/output/cluedo_character.txt')
+				the_text_path = os.path.expanduser('~/catkin_ws/src/group_project/output/cluedo_character.txt')
 				f = open(the_text_path, 'w')
 				if self.camera.red_found:
 					f.write("Scarlet")
@@ -811,7 +811,7 @@ if __name__ == '__main__':
 			##read points from yaml files and do some sorting so coding is easier
 		if len(sys.argv) == 1:
 			points = []
-			the_path = os.path.expanduser('~/catkin_ws/src/group25/world/input_points.yaml')
+			the_path = os.path.expanduser('~/catkin_ws/src/group_project/world/input_points.yaml')
 			with open(the_path, 'r') as stream:
 				points = yaml.safe_load(stream)
 
@@ -827,7 +827,7 @@ if __name__ == '__main__':
 			##make a depressed little robot (his name is Bobot)
 			robot = Bobot(ents,mids)
 
-			robot.go_to_entrances()
+			robot.go_to_entrance()
 			robot.go_to_room()
 			robot.green_room_traversal()
 
@@ -866,7 +866,7 @@ if __name__ == '__main__':
 		elif sys.argv[1] == 'random_room':
 
 			points = []
-			the_path = os.path.expanduser('~/catkin_ws/src/group25/world/input_points.yaml')
+			the_path = os.path.expanduser('~/catkin_ws/src/group_project/world/input_points.yaml')
 			with open(the_path, 'r') as stream:
 				points = yaml.safe_load(stream)
 
