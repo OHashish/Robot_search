@@ -516,6 +516,14 @@ class Bobot():
 		self.found_room = False
 		self.the_room = None
 		self.endGoal = False
+		#Room Traversal
+		self.traversal_velocity = Twist()
+		self.traversal_velocity.linear.x = 0.0
+		self.traversal_velocity.angular.z = 0.0
+		self.traversal_distance_to_obstacle = 2.0
+
+		#test close
+		obstacle_sub = rospy.Subscriber('/scan', LaserScan, self.get_distance_to_obstacle)
 
 
 
@@ -668,15 +676,14 @@ class Bobot():
 		##similar to lab2 exercise 1		
 		traverse_rate = rospy.Rate(10) #10hz
 
-		traversal_velocity = Twist()
-		traversal_velocity.linear.x = 0.5
-		traversal_velocity.angular.z = 0.5
+		self.traversal_velocity.linear.x = 0.5
+		self.traversal_velocity.angular.z = 0.5
 
 		last = time.time()
 
 		while self.endGoal == False:
 
-			#self.check_distance_to_obstacle()
+			self.turn_if_too_close()
 
 			now = time.time()
 
@@ -684,45 +691,92 @@ class Bobot():
 			if int(now - last) == 4:
 				
 				#stop BOTtas
-				traversal_velocity.linear.x = 0.0
-				traversal_velocity.angular.z = 1
-				self.traverse_pub.publish(traversal_velocity)
+				self.traversal_velocity.linear.x = 0.0
+				self.traversal_velocity.angular.z = 1
+				self.traverse_pub.publish(self.traversal_velocity)
 				
 				for i in range(60):
-					self.traverse_pub.publish(traversal_velocity)
+					self.traverse_pub.publish(self.traversal_velocity)
 
 					#PERFORM CAMERA CHECK FOR IMAGES
-					self.face_search()
+					#self.face_search()
 
 					if self.endGoal == True:
 						rospy.loginfo('BOTtas found the Cluedo Picture')
-						traversal_velocity.linear.x = 0.0
-						traversal_velocity.angular.z = 0.0
+						self.traversal_velocity.linear.x = 0.0
+						self.traversal_velocity.angular.z = 0.0
 						break
 						
 					traverse_rate.sleep()
 				
-				traversal_velocity.linear.x = 0.5
-				traversal_velocity.angular.z = 0.5
+				self.traversal_velocity.linear.x = 0.5
+				self.traversal_velocity.angular.z = 0.5
 				last = time.time()
 
 			else:
 
-				self.traverse_pub.publish(traversal_velocity)
+				self.traverse_pub.publish(self.traversal_velocity)
 				traverse_rate.sleep()
 
-
 		if rospy.is_shutdown():
-			traversal_velocity.linear.x = 0
-			traversal_velocity.angular.z = 0
-			self.traverse_pub.publish(traversal_velocity)
+			self.traversal_velocity.linear.x = 0
+			self.traversal_velocity.angular.z = 0
+			self.traverse_pub.publish(self.traversal_velocity)
 
 
-	def check_distance_to_obstacle(self):
+	def get_distance_to_obstacle(self, msg):
 
-		self.obstacle_sub = rospy.Subscriber('/scan', LaserScan, obstacle_distance)
+		#print('This is the distance to obstacle')
+		#print(msg.ranges[320])
+		newlist = [x for x in msg.ranges if np.isnan(x) == False]
 
-		rospy.spin()
+		self.traversal_distance_to_obstacle = newlist[int(math.floor(len(newlist) / 2))]
+
+	def turn_if_too_close(self):
+
+		# Finnish social distancing for Bottas
+		rate = rospy.Rate(10)
+
+		if(self.traversal_distance_to_obstacle < 1):
+
+				#saving old velocities
+				old_speed_x = self.traversal_velocity.linear.x
+				old_speed_z = self.traversal_velocity.angular.z
+
+				#stop robot
+				self.traversal_velocity.linear.x = 0
+				self.traversal_velocity.angular.z = 1
+
+				for i in range (31):
+					self.traverse_pub.publish(self.traversal_velocity)
+					rate.sleep()
+
+				#reset speed to previous
+				self.traversal_velocity.linear.x = old_speed_x
+				self.traversal_velocity.angular.z = old_speed_z
+
+
+	
+	def debug_obstacle(self):
+
+		rate = rospy.Rate(10) 
+		self.idle = False
+		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
+
+		#Setting the forward speed
+		self.traversal_velocity.linear.x = 0.3
+
+		while not rospy.is_shutdown():
+			self.traverse_pub.publish(self.traversal_velocity)
+
+			## if robot is too close, turn around and set speed to 0
+			#self.turn_if_close()
+			print(self.traversal_distance_to_obstacle)
+
+			self.turn_if_too_close()
+				
+			rate.sleep()
+
 
 	def random_points_method(self):
 		#TODO:1.Generate random points relating to the robot
@@ -741,31 +795,8 @@ class Bobot():
 		rospy.loginfo("Go to (%s, %s) pose", position['x'], position['y'])
 		success = self.navigator.goto(position, quaternion)
 		rospy.spin()
-		
-
 
 	
-	
-	
-
-	
-def obstacle_distance(msg):
-
-	print(msg.ranges[360])
-
-	spin_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
-	spin_velocity = Twist()
-
-	#setting speed to turn around
-	spin_velocity.linear.x = 0.0
-	spin_velocity.angular.z = 1
-
-	#if the robot is too close to obstacle
-	if msg.ranges[360] < 1:
-		for p in range(30):	
-			spin_pub.publish(spin_velocity)
-
-
 
 if __name__ == '__main__':
 	try:
@@ -854,10 +885,13 @@ if __name__ == '__main__':
 			BOBBot = Bobot()
 			BOBBot.face_search()
 			print("Done?")
-			
 
-			
+		elif sys.argv[1] == 'debug_obstacle':
 
+			print('DEBUGGING OBSTACLES')
+			BOTtas = Bobot()
+			BOTtas.debug_obstacle()
+			
 
 	except rospy.ROSInterruptException:
 		rospy.loginfo("Ctrl-C caught. Quitting")
