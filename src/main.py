@@ -521,6 +521,8 @@ class Bobot():
 		self.traversal_velocity.linear.x = 0.0
 		self.traversal_velocity.angular.z = 0.0
 		self.traversal_distance_to_obstacle = 2.0
+		self.traversal_distance_to_obstacle_left = 2.0
+		self.traversal_distance_to_obstacle_right = 2.0
 
 		#test close
 		obstacle_sub = rospy.Subscriber('/scan', LaserScan, self.get_distance_to_obstacle)
@@ -699,7 +701,7 @@ class Bobot():
 					self.traverse_pub.publish(self.traversal_velocity)
 
 					#PERFORM CAMERA CHECK FOR IMAGES
-					#self.face_search()
+					self.face_search()
 
 					if self.endGoal == True:
 						rospy.loginfo('BOTtas found the Cluedo Picture')
@@ -731,13 +733,15 @@ class Bobot():
 		newlist = [x for x in msg.ranges if np.isnan(x) == False]
 
 		self.traversal_distance_to_obstacle = newlist[int(math.floor(len(newlist) / 2))]
+		self.traversal_distance_to_obstacle_left = newlist[int(math.floor(len(newlist) - 1))]
+		self.traversal_distance_to_obstacle_right = newlist[0]
 
 	def turn_if_too_close(self):
 
 		# Finnish social distancing for Bottas
 		rate = rospy.Rate(10)
 
-		if(self.traversal_distance_to_obstacle < 1):
+		if self.traversal_distance_to_obstacle < 0.85:
 
 				#saving old velocities
 				old_speed_x = self.traversal_velocity.linear.x
@@ -747,7 +751,7 @@ class Bobot():
 				self.traversal_velocity.linear.x = 0
 				self.traversal_velocity.angular.z = 1
 
-				for i in range (31):
+				for i in range (16):
 					self.traverse_pub.publish(self.traversal_velocity)
 					rate.sleep()
 
