@@ -267,7 +267,7 @@ class colourIdentifier():
 	def callback3(self, data):
 		
 		##kill it after 51 seconds
-		if time.time() - self.killswitch > 51:
+		if time.time() - self.killswitch > 31:
 			rospy.loginfo("Trying again")
 			self.stop_face_search()
 
