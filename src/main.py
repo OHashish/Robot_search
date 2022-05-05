@@ -269,7 +269,7 @@ class colourIdentifier():
 	def callback3(self, data):
 		
 		##kill it after  seconds
-		if time.time() - self.killswitch > 32:
+		if time.time() - self.killswitch > 40:
 			rospy.loginfo("Trying again")
 			
 			self.stop_face_search()
@@ -357,18 +357,21 @@ class colourIdentifier():
 					if	spon==1:
 						self.desired_velocity.angular.z = correction
 						for i in range (10):
+							self.timeof_last = time.time()
 							self.pub.publish(self.desired_velocity)
 							traverse_rate.sleep()
 						self.desired_velocity.angular.z=0
 					else:
 						self.desired_velocity.angular.z = -correction
 						for i in range (10):
+							self.timeof_last = time.time()
 							self.pub.publish(self.desired_velocity)
 							traverse_rate.sleep()
 						self.desired_velocity.angular.z=0
 
 					self.desired_velocity.linear.x=0.2
 					for i in range (10):
+						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 						traverse_rate.sleep()
 					self.desired_velocity.linear.x = 0
@@ -376,11 +379,13 @@ class colourIdentifier():
 					if spon==1:
 						self.desired_velocity.angular.z=-correction
 						for i in range (10):
+							self.timeof_last = time.time()
 							self.pub.publish(self.desired_velocity)
 							traverse_rate.sleep()
 					else:
 						self.desired_velocity.angular.z=correction
 						for i in range (10):
+							self.timeof_last = time.time()
 							self.pub.publish(self.desired_velocity)
 							traverse_rate.sleep()
 					
@@ -713,7 +718,7 @@ class Bobot():
 					self.traverse_pub.publish(self.traversal_velocity)
 
 					#PERFORM CAMERA CHECK FOR IMAGES
-					if i % 4 == 0 :
+					if (i+4) % 5 == 0 :
 						self.face_search()
 
 					if self.endGoal == True:
