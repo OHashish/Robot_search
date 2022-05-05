@@ -88,7 +88,7 @@
             <script>
               <uri>model://cluedo_character2/materials/scripts</uri>
               <uri>model://cluedo_character2/materials/textures</uri>
-              <name>Cluedo_character/Image</name>
+              <name>Cluedo_character2/Image</name>
             </script>
           </material>
         </visual>
@@ -139,7 +139,7 @@
             <script>
               <uri>model://cluedo_character3/materials/scripts</uri>
               <uri>model://cluedo_character3/materials/textures</uri>
-              <name>Cluedo_character/Image</name>
+              <name>Cluedo_character3/Image</name>
             </script>
           </material>
         </visual>
@@ -190,7 +190,7 @@
             <script>
               <uri>model://cluedo_character4/materials/scripts</uri>
               <uri>model://cluedo_character4/materials/textures</uri>
-              <name>Cluedo_character/Image</name>
+              <name>Cluedo_character4/Image</name>
             </script>
           </material>
         </visual>
