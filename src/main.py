@@ -170,9 +170,11 @@ class colourIdentifier():
 		self.desired_velocity = Twist()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback3)
 		self.angle_sub = rospy.Subscriber('/scan', LaserScan, self.get_angle)
+		self.killswitch = time.time()
 		
 	def stop_face_search(self):
 		self.image_sub.unregister()
+		self.angle_sub.unregister()
 	def stop_search(self):
 		self.image_sub.unregister()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback2)
@@ -263,6 +265,13 @@ class colourIdentifier():
 		# cv2.imshow("window",self.result)
 
 	def callback3(self, data):
+		
+		##kill it after 51 seconds
+		if time.time() - self.killswitch > 51:
+			rospy.loginfo("Trying again")
+			self.stop_face_search()
+
+		
 		try:
 			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
 		except CvBridgeError as e:
@@ -355,7 +364,7 @@ class colourIdentifier():
 							traverse_rate.sleep()
 						self.desired_velocity.angular.z=0
 
-					self.desired_velocity.linear.x=0.5
+					self.desired_velocity.linear.x=0.2
 					for i in range (10):
 						self.pub.publish(self.desired_velocity)
 						traverse_rate.sleep()
@@ -678,7 +687,7 @@ class Bobot():
 		##similar to lab2 exercise 1		
 		traverse_rate = rospy.Rate(10) #10hz
 
-		self.traversal_velocity.linear.x = 0.5
+		self.traversal_velocity.linear.x = 0.2
 		self.traversal_velocity.angular.z = 0.5
 
 		last = time.time()
@@ -768,7 +777,7 @@ class Bobot():
 		self.traverse_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size = 10)
 
 		#Setting the forward speed
-		self.traversal_velocity.linear.x = 0.3
+		self.traversal_velocity.linear.x = 0.2
 
 		while not rospy.is_shutdown():
 			self.traverse_pub.publish(self.traversal_velocity)
