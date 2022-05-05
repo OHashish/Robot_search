@@ -146,6 +146,7 @@ class colourIdentifier():
 		self.yellow_found = False
 		self.purple_found= False
 		self.timeof_last = None
+	
 
 	def start_search(self):
 		self.green_found = False
@@ -168,9 +169,10 @@ class colourIdentifier():
 		self.bridge = CvBridge()
 		self.pub = rospy.Publisher('mobile_base/commands/velocity', Twist)
 		self.desired_velocity = Twist()
+		self.killswitch = time.time()
 		self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.callback3)
 		self.angle_sub = rospy.Subscriber('/scan', LaserScan, self.get_angle)
-		self.killswitch = time.time()
+		
 		
 	def stop_face_search(self):
 		self.image_sub.unregister()
@@ -269,8 +271,9 @@ class colourIdentifier():
 		##kill it after  seconds
 		if time.time() - self.killswitch > 32:
 			rospy.loginfo("Trying again")
+			
 			self.stop_face_search()
-
+		rospy.loginfo(time.time() - self.killswitch)
 		
 		try:
 			self.cv_image = self.bridge.imgmsg_to_cv2(data,"bgr8")
@@ -323,14 +326,14 @@ class colourIdentifier():
 			if cv2.contourArea(c) < 7000 and cv2.contourArea(c)>50:
 				self.desired_velocity.linear.x = 0
 				if cx>330:
-					rospy.loginfo("Rotating Right...")
-					rospy.loginfo(cx)
+					#rospy.loginfo("Rotating Right...")
+					#rospy.loginfo(cx)
 					self.desired_velocity.angular.z = -0.075
 					for i in range (1):
 						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 				if cx<300:
-					rospy.loginfo("Rotating Left ...")
+					#rospy.loginfo("Rotating Left ...")
 					self.desired_velocity.angular.z = 0.075
 					for i in range (1):
 						self.timeof_last = time.time()
@@ -372,12 +375,12 @@ class colourIdentifier():
 
 					if spon==1:
 						self.desired_velocity.angular.z=-correction
-						for i in range (17):
+						for i in range (10):
 							self.pub.publish(self.desired_velocity)
 							traverse_rate.sleep()
 					else:
 						self.desired_velocity.angular.z=correction
-						for i in range (17):
+						for i in range (10):
 							self.pub.publish(self.desired_velocity)
 							traverse_rate.sleep()
 					
@@ -710,7 +713,8 @@ class Bobot():
 					self.traverse_pub.publish(self.traversal_velocity)
 
 					#PERFORM CAMERA CHECK FOR IMAGES
-					self.face_search()
+					if i % 4 == 0 :
+						self.face_search()
 
 					if self.endGoal == True:
 						rospy.loginfo('BOTtas found the Cluedo Picture')
