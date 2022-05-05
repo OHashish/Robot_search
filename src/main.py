@@ -127,9 +127,9 @@ class faceDetector():
 							(x + height, y + width),
 							(0, 255, 0), 2)
 
-		cv2.namedWindow('face')
-		cv2.imshow('face', self.cv_image)
-		cv2.waitKey(3)
+		# cv2.namedWindow('face')
+		# cv2.imshow('face', self.cv_image)
+		# cv2.waitKey(3)
 
 		if time.time() - self.t_start >=4:
 			self.stop_search()
@@ -255,12 +255,12 @@ class colourIdentifier():
 
 
 		#Show the resultant images you have created. You can show all of them or just the end result if you wish to.
-		cv2.namedWindow("dbg_window")
-		cv2.imshow("dbg_window",self.cv_image)
-		cv2.waitKey(3)
+		# cv2.namedWindow("dbg_window")
+		# cv2.imshow("dbg_window",self.cv_image)
+		# cv2.waitKey(3)
 
-		cv2.namedWindow("window")
-		cv2.imshow("window",self.result)
+		# cv2.namedWindow("window")
+		# cv2.imshow("window",self.result)
 
 	def callback3(self, data):
 		try:
@@ -311,7 +311,7 @@ class colourIdentifier():
 				print("divzero")
 			#Rotate Robot until red object is at the center
 
-			if cv2.contourArea(c) < 12000 and cv2.contourArea(c)>50:
+			if cv2.contourArea(c) < 7000 and cv2.contourArea(c)>50:
 				self.desired_velocity.linear.x = 0
 				if cx>330:
 					rospy.loginfo("Rotating Right...")
@@ -331,7 +331,7 @@ class colourIdentifier():
 				
 
 			#If cluedo related color is centered then start moving towards it
-			if cv2.contourArea(c) < 12000 and cv2.contourArea(c)>50 and (cx<330 and cx>300) :
+			if cv2.contourArea(c) < 6800 and cv2.contourArea(c)>50 and (cx<330 and cx>300) :
 				traverse_rate = rospy.Rate(10) #10hz
 				print(self.angle)
 
@@ -382,14 +382,14 @@ class colourIdentifier():
 						self.timeof_last = time.time()
 						self.pub.publish(self.desired_velocity)
 
-			elif cv2.contourArea(c) > 16000:
+			elif cv2.contourArea(c) > 12000:
 				self.desired_velocity.linear.x = -0.1
 				for i in range (5):
 					self.timeof_last = time.time()
 					self.pub.publish(self.desired_velocity)
 
 
-			elif cv2.contourArea(c) > 12500:
+			elif cv2.contourArea(c) > 7000:
 				
 				rospy.loginfo("Sus color found (cLeUDo???)!")
 				
@@ -402,14 +402,14 @@ class colourIdentifier():
 				if len(color_contour) > 0:
 
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 12000:
+					if cv2.contourArea(aux) > 7000:
 						#found scarlet
 						self.red_found = True
 				##plum?
 				color_contour = cv2.findContours(self.mask_plum,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)[0]
 				if len(color_contour) > 0:
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 12000:
+					if cv2.contourArea(aux) > 7000:
 						#found plum
 						self.purple_found = True
 				##mustard?
@@ -417,7 +417,7 @@ class colourIdentifier():
 				
 				if len(color_contour) > 0:
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 12000:
+					if cv2.contourArea(aux) > 7000:
 						#found mustard
 						self.yellow_found = True
 				##peacock?
@@ -425,19 +425,19 @@ class colourIdentifier():
 				if len(color_contour) > 0:
 					
 					aux = max(color_contour, key=cv2.contourArea)
-					if cv2.contourArea(aux) > 12000:
+					if cv2.contourArea(aux) > 7000:
 						#found peacock
 						self.blue_found = True
 
 				
 				
 		#Show the resultant images you have created. You can show all of them or just the end result if you wish to.
-		cv2.namedWindow("zdbg_window")
-		cv2.imshow("zdbg_window",self.cv_image)
-		cv2.waitKey(3)
+		# cv2.namedWindow("zdbg_window")
+		# cv2.imshow("zdbg_window",self.cv_image)
+		# cv2.waitKey(3)
 
-		cv2.namedWindow("window")
-		cv2.imshow("window",self.result)
+		# cv2.namedWindow("window")
+		# cv2.imshow("window",self.result)
 
 
 		# cv2.namedWindow("dbgg")
@@ -664,7 +664,7 @@ class Bobot():
 			
 			self.facer.stop_search() 
 
-		cv2.destroyAllWindows()
+		# cv2.destroyAllWindows()
 		return False
 
 
